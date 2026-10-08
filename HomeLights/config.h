@@ -33,7 +33,10 @@
 // ---------------------------------------------------------------------------
 // Versión de ESTE firmware. Súbela (1.0.0 -> 1.0.1) antes de compilar un release;
 // el ESP32 solo se actualiza si version.json trae una versión MAYOR.
-#define FW_VERSION "1.0.1"
+#define FW_VERSION "1.0.2"
+
+#define WEATHER_LAT 26.09
+#define WEATHER_LON -98.28
 
 // Manifiesto con la última versión publicada (asset del último GitHub Release).
 #define OTA_MANIFEST_URL "https://github.com/Cavazos32/Home/releases/latest/download/version.json"

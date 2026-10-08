@@ -67,6 +67,8 @@ void handleState() {
   doc["hostname"] = String(MDNS_HOSTNAME) + ".local";
   doc["clock"] = schedules.currentTimeText();
   doc["timeSynced"] = schedules.timeSynced();
+  doc["weatherLat"] = WEATHER_LAT;
+  doc["weatherLon"] = WEATHER_LON;
   fillZoneJson(doc["cuna"].to<JsonObject>(), lights.zone(ZONE_CUNA));
   fillZoneJson(doc["setup"].to<JsonObject>(), lights.zone(ZONE_SETUP));
 
