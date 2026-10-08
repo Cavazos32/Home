@@ -160,6 +160,8 @@
       cursor: pointer;
       transition: box-shadow 0.35s ease, opacity 0.25s ease;
       opacity: 0.55;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     .zone-card.is-on { opacity: 1; }
@@ -180,10 +182,11 @@
       margin: 0 auto;
       aspect-ratio: 1;
       touch-action: none;
-      cursor: grab;
     }
 
-    .dial-wrap:active { cursor: grabbing; }
+    .dial-wrap.dial-locked { cursor: pointer; }
+    .dial-wrap.dial-enabled { cursor: grab; }
+    .dial-wrap.dial-enabled:active { cursor: grabbing; }
 
     .dial-glow {
       position: absolute;
@@ -448,12 +451,16 @@
 const U_START = 150;
 const U_SWEEP = 240;
 const HOLD_MS = 150;
+const POLL_MS = 350;
 let schedules = [];
 let schedulesDirty = false;
 let alternateOn = false;
 const editingFields = new Set();
 const dialDragging = new Set();
 let settingsQuietUntil = 0;
+let settingsSaveToken = 0;
+let pollRunning = false;
+let pollQueued = false;
 let schedulesQuietUntil = 0;
 let alternateQuietUntil = 0;
 const dialShown = { cuna: 0, setup: 0 };
@@ -463,9 +470,14 @@ let dialAnimId = 0;
 function trackFieldEdits() {
   document.querySelectorAll('.field').forEach((el) => {
     if (!el.id) return;
-    el.addEventListener('focus', () => editingFields.add(el.id));
+    const markEditing = () => editingFields.add(el.id);
+    el.addEventListener('focus', markEditing);
+    el.addEventListener('input', markEditing);
+    el.addEventListener('change', markEditing);
     el.addEventListener('blur', () => {
-      setTimeout(() => editingFields.delete(el.id), 200);
+      setTimeout(() => {
+        if (document.activeElement !== el) editingFields.delete(el.id);
+      }, 300);
     });
   });
 }
@@ -493,13 +505,14 @@ function saveEspBase() {
   poll();
 }
 
-async function api(path, body) {
+async function api(path, body, fetchOpts) {
   const base = apiBase();
   if (isFileMode() && !base) throw new Error('Sin URL');
   const r = await fetch(base + path, {
     method: body ? 'POST' : 'GET',
     headers: body ? {'Content-Type':'application/json'} : {},
-    body: body ? JSON.stringify(body) : undefined
+    body: body ? JSON.stringify(body) : undefined,
+    signal: fetchOpts && fetchOpts.signal
   });
   const text = await r.text();
   let data = null;
@@ -513,13 +526,33 @@ async function api(path, body) {
 }
 
 const picked = { cuna: 50, setup: 50 };
-const powered = { cuna: false, setup: false };
+const zonePhase = { cuna: 'off', setup: 'off' };
 
-function updateDialUI(zone, level, on) {
+function dialEditable(zone) {
+  return zonePhase[zone] === 'on';
+}
+
+function updateZoneChrome(zone) {
+  const card = document.getElementById('card-' + zone);
+  const wrap = card && card.querySelector('.dial-wrap');
+  const on = zonePhase[zone] !== 'off';
+  if (card) card.classList.toggle('is-on', on);
+  if (wrap) {
+    wrap.classList.toggle('dial-enabled', dialEditable(zone));
+    wrap.classList.toggle('dial-locked', !dialEditable(zone));
+  }
+}
+
+function phaseFromServer(z) {
+  if (z.phase) return z.phase;
+  if (z.transitioning) return (+z.targetLevel <= 0 ? 'turning_off' : 'turning_on');
+  return (z.on || +z.level > 0.5) ? 'on' : 'off';
+}
+
+function updateDialUI(zone, level) {
   const fine = Math.max(0, Math.min(100, +level));
   const pct = Math.round(fine);
   const arc = document.getElementById('arc-' + zone);
-  const card = document.getElementById('card-' + zone);
   const pctEl = document.getElementById(zone + '-pct');
   const slider = document.getElementById(zone + '-slider');
   if (arc) {
@@ -527,7 +560,6 @@ function updateDialUI(zone, level, on) {
     arc.style.strokeDashoffset = '0';
   }
   if (pctEl) pctEl.innerHTML = pct + '<span>%</span>';
-  if (card) card.classList.toggle('is-on', on);
   if (slider) slider.value = pct;
 }
 
@@ -551,7 +583,7 @@ function startDialAnim() {
       } else {
         dialShown[z] = g;
       }
-      updateDialUI(z, dialShown[z], powered[z]);
+      updateDialUI(z, dialShown[z]);
     }
     if (moving) dialAnimId = requestAnimationFrame(tick);
     else dialAnimId = 0;
@@ -564,36 +596,45 @@ const expectLevel = { cuna: null, setup: null };
 const levelGen = { cuna: 0, setup: 0 };
 const lastSendAt = { cuna: 0, setup: 0 };
 
-function syncDialFromServer(zone, level) {
-  const on = +level > 0.5;
-  if (dialDragging.has(zone)) {
-    powered[zone] = on;
-    return;
-  }
+function syncDialFromServer(zone, z) {
+  zonePhase[zone] = phaseFromServer(z);
+  updateZoneChrome(zone);
+
+  if (dialDragging.has(zone)) return;
+
+  const level = z.levelFine != null ? z.levelFine : z.level;
+  const phase = zonePhase[zone];
+
   if (expectLevel[zone] != null) {
-    if (Math.abs(+level - expectLevel[zone]) > 2) return;
-    expectLevel[zone] = null;
+    if (phase !== 'on') {
+      expectLevel[zone] = null;
+    } else if (Math.abs(+level - expectLevel[zone]) > 2) {
+      return;
+    } else {
+      expectLevel[zone] = null;
+    }
   }
-  powered[zone] = on;
-  if (!on) {
-    updateDialUI(zone, picked[zone], false);
+
+  if (phase === 'off') {
+    updateDialUI(zone, picked[zone]);
     return;
   }
-  picked[zone] = Math.round(+level);
+
+  if (phase === 'on') picked[zone] = Math.round(+level);
   setDialGoal(zone, level, false);
 }
 
 function setLevel(zone, v, instant) {
+  if (!dialEditable(zone)) return;
   const pct = Math.round(Math.max(0, Math.min(100, +v)));
   expectLevel[zone] = pct;
   if (instant) {
     dialShown[zone] = pct;
     dialGoal[zone] = pct;
-    updateDialUI(zone, pct, powered[zone]);
+    updateDialUI(zone, pct);
   } else {
     setDialGoal(zone, pct, false);
   }
-  if (!powered[zone]) return;
   const wait = Math.max(0, 35 - (Date.now() - lastSendAt[zone]));
   clearTimeout(sendTimers[zone]);
   sendTimers[zone] = setTimeout(() => sendLevel(zone, pct), wait);
@@ -601,6 +642,7 @@ function setLevel(zone, v, instant) {
 
 async function sendLevel(zone, value) {
   if (expectLevel[zone] !== value) return;
+  if (!dialEditable(zone)) return;
   const gen = ++levelGen[zone];
   lastSendAt[zone] = Date.now();
   try {
@@ -608,7 +650,7 @@ async function sendLevel(zone, value) {
   } catch (e) {
     if (levelGen[zone] === gen) {
       expectLevel[zone] = null;
-      document.getElementById('meta').textContent = e.message;
+      document.getElementById('datetime').textContent = e.message;
     }
   }
 }
@@ -652,68 +694,67 @@ function bindZone(zone) {
   let timer = 0;
   let sx = 0;
   let sy = 0;
+  let activePointerId = null;
+
+  const clearHold = () => {
+    clearTimeout(timer);
+    timer = 0;
+  };
+
+  const releaseCapture = () => {
+    if (activePointerId == null) return;
+    try {
+      if (card.hasPointerCapture(activePointerId)) card.releasePointerCapture(activePointerId);
+    } catch (_) {}
+    activePointerId = null;
+  };
 
   card.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     mode = 'pending';
     sx = e.clientX;
     sy = e.clientY;
-    dialDragging.add(zone);
-    card.setPointerCapture(e.pointerId);
-    clearTimeout(timer);
+    activePointerId = e.pointerId;
+    clearHold();
     timer = setTimeout(() => {
       if (mode !== 'pending') return;
       mode = 'hold';
-      const pct = Math.round(percentOnU(wrap, sx, sy));
-      picked[zone] = pct;
-      if (powered[zone]) cmd(zone, 'off');
-      else powerOn(zone, pct);
+      releaseCapture();
+      const ph = zonePhase[zone];
+      if (ph === 'off') cmd(zone, 'on');
+      else if (ph === 'on') cmd(zone, 'off');
     }, HOLD_MS);
+    try { card.setPointerCapture(e.pointerId); } catch (_) {}
   });
 
   card.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== activePointerId) return;
+    if (mode === 'hold') return;
     if (mode !== 'pending' && mode !== 'drag') return;
-    if (mode === 'pending' && Math.hypot(e.clientX - sx, e.clientY - sy) > 8) {
-      clearTimeout(timer);
-      mode = 'drag';
+
+    const dist = Math.hypot(e.clientX - sx, e.clientY - sy);
+    if (mode === 'pending' && dist > 8) {
+      clearHold();
+      if (dialEditable(zone)) mode = 'drag';
+      else mode = 'blocked';
     }
-    if (mode === 'drag') {
+    if (mode === 'drag' && dialEditable(zone)) {
+      e.preventDefault();
       const pct = Math.round(percentOnU(wrap, e.clientX, e.clientY));
       picked[zone] = pct;
-      if (powered[zone]) setLevel(zone, pct, true);
-      else {
-        dialShown[zone] = pct;
-        dialGoal[zone] = pct;
-        updateDialUI(zone, pct, false);
-      }
+      setLevel(zone, pct, true);
     }
   });
 
-  const end = () => {
-    clearTimeout(timer);
-    if (mode === 'pending' && !powered[zone]) {
-      const pct = Math.round(percentOnU(wrap, sx, sy));
-      picked[zone] = pct;
-      dialShown[zone] = pct;
-      dialGoal[zone] = pct;
-      updateDialUI(zone, pct, false);
-    }
+  const end = (e) => {
+    if (activePointerId != null && e && e.pointerId !== activePointerId) return;
+    clearHold();
+    releaseCapture();
     mode = null;
     dialDragging.delete(zone);
   };
   card.addEventListener('pointerup', end);
   card.addEventListener('pointercancel', end);
-}
-
-async function powerOn(zone, pct) {
-  picked[zone] = pct;
-  powered[zone] = true;
-  expectLevel[zone] = pct;
-  dialShown[zone] = pct;
-  dialGoal[zone] = pct;
-  updateDialUI(zone, pct, true);
-  const duration = +document.getElementById('cfg-fade-on').value || 1100;
-  await api('/api/command', { zone, action: 'fade', value: pct, duration });
-  poll();
 }
 
 async function cmd(zone, action) {
@@ -773,9 +814,12 @@ function readSettingsForm() {
   };
 }
 
-function applySettingsFromServer(st, force) {
+const SETTINGS_FIELD_IDS = ['cfg-fade-on', 'cfg-fade-off', 'cfg-gamma', 'cfg-default-on'];
+
+function applySettingsFromServer(st, force, pollSettingsToken) {
   if (!st) return;
   if (!force && Date.now() < settingsQuietUntil) return;
+  if (!force && pollSettingsToken != null && pollSettingsToken !== settingsSaveToken) return;
 
   const map = [
     ['cfg-fade-on', st.fadeOnMs],
@@ -785,32 +829,35 @@ function applySettingsFromServer(st, force) {
   ];
   for (const [id, val] of map) {
     if (!Number.isFinite(val)) continue;
-    if (force || !editingFields.has(id)) setFieldValue(id, val);
+    if (!force && editingFields.has(id)) continue;
+    setFieldValue(id, val);
   }
 }
 
 async function saveSettings() {
-  const meta = document.getElementById('meta');
+  const datetimeEl = document.getElementById('datetime');
   try {
     const payload = readSettingsForm();
     if (Object.values(payload).some((v) => !Number.isFinite(v))) {
-      meta.textContent = 'Valor inválido';
+      datetimeEl.textContent = 'Valor inválido';
       return;
     }
 
-    settingsQuietUntil = Date.now() + 8000;
-    document.querySelectorAll('#cfg-fade-on,#cfg-fade-off,#cfg-gamma,#cfg-default-on')
-      .forEach((el) => editingFields.delete(el.id));
+    settingsSaveToken++;
+    settingsQuietUntil = Date.now() + 10000;
+    SETTINGS_FIELD_IDS.forEach((id) => editingFields.delete(id));
 
     const res = await api('/api/settings', { settings: payload });
     if (!res.settings) throw new Error('Sin respuesta');
 
     applySettingsFromServer(res.settings, true);
-    settingsQuietUntil = Date.now() + 8000;
+    SETTINGS_FIELD_IDS.forEach((id) => editingFields.delete(id));
+    settingsQuietUntil = Date.now() + 3000;
     poll();
   } catch (e) {
+    settingsSaveToken--;
     settingsQuietUntil = 0;
-    meta.textContent = e.message;
+    datetimeEl.textContent = e.message;
   }
 }
 
@@ -1013,25 +1060,41 @@ function syncWeatherCoords(s) {
   if (changed || !weatherTimerStarted) startWeatherSchedule();
 }
 
+function applyStateFromPoll(s, pollSettingsToken) {
+  if (!s.cuna || !s.setup) throw new Error('Estado inválido');
+  updateDateTimeFromClock(s.clock);
+  syncWeatherCoords(s);
+  for (const z of ['cuna', 'setup']) {
+    syncDialFromServer(z, s[z]);
+  }
+  applyAlternateFromServer(s.alternate, false);
+  applySettingsFromServer(s.settings, false, pollSettingsToken);
+  if (!schedulesDirty && Date.now() >= schedulesQuietUntil) {
+    schedules = s.schedules || [];
+    renderSchedules();
+  }
+}
+
 async function poll() {
+  if (pollRunning) {
+    pollQueued = true;
+    return;
+  }
+  pollRunning = true;
+  const pollSettingsToken = settingsSaveToken;
   try {
     const s = await api('/api/state');
-    if (!s.cuna || !s.setup) throw new Error('Estado inválido');
-    updateDateTimeFromClock(s.clock);
-    syncWeatherCoords(s);
-    for (const z of ['cuna', 'setup']) {
-      if (dialDragging.has(z)) continue;
-      const lv = s[z].levelFine != null ? s[z].levelFine : s[z].level;
-      syncDialFromServer(z, lv);
-    }
-    applyAlternateFromServer(s.alternate, false);
-    applySettingsFromServer(s.settings, false);
-    if (!schedulesDirty && Date.now() >= schedulesQuietUntil) {
-      schedules = s.schedules || [];
-      renderSchedules();
-    }
+    applyStateFromPoll(s, pollSettingsToken);
   } catch (e) {
-    document.getElementById('datetime').textContent = e.message;
+    if (e.name !== 'AbortError') {
+      document.getElementById('datetime').textContent = e.message;
+    }
+  } finally {
+    pollRunning = false;
+    if (pollQueued) {
+      pollQueued = false;
+      poll();
+    }
   }
 }
 
@@ -1073,7 +1136,10 @@ setInterval(() => {
 
 layoutU();
 trackFieldEdits();
-['cuna', 'setup'].forEach(bindZone);
+['cuna', 'setup'].forEach((z) => {
+  updateZoneChrome(z);
+  bindZone(z);
+});
 setDialGoal('cuna', 0, true);
 setDialGoal('setup', 0, true);
 
@@ -1084,7 +1150,7 @@ if (isFileMode()) {
 }
 
 poll();
-setInterval(poll, 120);
+setInterval(poll, POLL_MS);
 </script>
 </body>
 </html>

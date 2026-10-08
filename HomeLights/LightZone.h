@@ -7,7 +7,7 @@ enum LightZoneId : uint8_t { ZONE_CUNA = 0, ZONE_SETUP = 1, ZONE_COUNT = 2 };
 
 class LightZone {
  public:
-  LightZone(LightZoneId id, uint8_t gpio, uint8_t ledcChannel);
+  explicit LightZone(uint8_t gpio);
 
   void begin();
   void update();
@@ -19,17 +19,20 @@ class LightZone {
   void toggleLight();
 
   uint8_t currentLevel() const;
+  uint8_t targetLevel() const;
   float brightnessPercent() const { return brightness_ * 100.0f; }
+  /** Brillo físico > 0; usar phaseName() para OFF/ON/transiciones. */
   bool isOn() const { return brightness_ > 0.002f; }
+  bool isTransitioning() const { return fadeActive_; }
+  /** "off" | "turning_on" | "on" | "turning_off" */
+  const char* phaseName() const;
 
  private:
   void applyPwmFromBrightness(float linear0to1);
   void updateFade();
   static float percentToBrightness(uint8_t percent);
 
-  LightZoneId id_;
   uint8_t gpio_;
-  uint8_t ledcChannel_;
 
   float brightness_ = 0.0f;
 

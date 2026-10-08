@@ -22,8 +22,7 @@ float linearToPwmCurve(float linear) {
 }
 }  // namespace
 
-LightZone::LightZone(LightZoneId id, uint8_t gpio, uint8_t ledcChannel)
-    : id_(id), gpio_(gpio), ledcChannel_(ledcChannel) {}
+LightZone::LightZone(uint8_t gpio) : gpio_(gpio) {}
 
 float LightZone::percentToBrightness(uint8_t percent) {
   return clamp01(static_cast<float>(percent) / 100.0f);
@@ -31,6 +30,20 @@ float LightZone::percentToBrightness(uint8_t percent) {
 
 uint8_t LightZone::currentLevel() const {
   return clampPercent(static_cast<int>(brightness_ * 100.0f + 0.5f));
+}
+
+uint8_t LightZone::targetLevel() const {
+  if (fadeActive_) {
+    return clampPercent(static_cast<int>(fadeTargetBright_ * 100.0f + 0.5f));
+  }
+  return currentLevel();
+}
+
+const char* LightZone::phaseName() const {
+  if (fadeActive_) {
+    return fadeTargetBright_ <= 0.002f ? "turning_off" : "turning_on";
+  }
+  return isOn() ? "on" : "off";
 }
 
 void LightZone::begin() {

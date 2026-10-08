@@ -44,7 +44,10 @@ static LightZoneId zoneFromName(const char* name) {
 static void fillZoneJson(JsonObject obj, const LightZone& z) {
   obj["level"] = z.currentLevel();
   obj["levelFine"] = z.brightnessPercent();
+  obj["targetLevel"] = z.targetLevel();
   obj["on"] = z.isOn();
+  obj["transitioning"] = z.isTransitioning();
+  obj["phase"] = z.phaseName();
 }
 
 static bool serializeDocToString(JsonDocument& doc, String& out) {

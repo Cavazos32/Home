@@ -63,7 +63,7 @@ El ESP32 lee `releases/latest/download/version.json`, descarga el `.bin` por HTT
 | Función | Descripción |
 |--------|-------------|
 | Dimmer | 0–100 % por zona (cuna / setup) |
-| Encender / apagar | Restaura el último nivel al encender |
+| Encender / apagar | Fade al encender hacia **Nivel on** (`defaultOnLevel` en Ajustes) |
 | Fade | Transición suave (API / botones web) |
 | Horarios | Hasta 10 eventos; hora por NTP; guardado en flash |
 | Modo alternado | Cuna ↔ setup rítmico (broma) |

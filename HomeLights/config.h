@@ -22,9 +22,6 @@
 #define FADE_TIME_MS FADE_ON_MS
 #define DEFAULT_ON_LEVEL 50
 
-#define LEDC_CHANNEL_CUNA 0
-#define LEDC_CHANNEL_SETUP 1
-
 // Zona horaria: México centro (sin horario de verano automático en ESP32 clásico)
 #define GMT_OFFSET_SEC (-6 * 3600)
 #define DAYLIGHT_OFFSET_SEC 0
