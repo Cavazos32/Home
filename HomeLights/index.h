@@ -1,0 +1,792 @@
+#pragma once
+
+// Contenido embebido de index.html (servido en / e /index.html)
+#include <pgmspace.h>
+
+const char INDEX_HTML[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Habitación</title>
+  <style>
+    :root {
+      --text: rgba(255, 255, 255, 0.92);
+      --muted: rgba(255, 255, 255, 0.45);
+      --glass: rgba(255, 255, 255, 0.08);
+      --glass-border: rgba(255, 255, 255, 0.14);
+      --cuna: #ffb86a;
+      --cuna-glow: rgba(255, 184, 106, 0.55);
+      --setup: #7ec8ff;
+      --setup-glow: rgba(126, 200, 255, 0.5);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background: #0a0c12;
+      overflow-x: hidden;
+    }
+
+    .ambient {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 10%, rgba(255, 170, 90, 0.22), transparent 55%),
+        radial-gradient(ellipse 70% 45% at 85% 25%, rgba(100, 180, 255, 0.2), transparent 50%),
+        radial-gradient(ellipse 60% 40% at 50% 100%, rgba(120, 90, 255, 0.12), transparent 55%),
+        linear-gradient(165deg, #0d1018 0%, #06070b 100%);
+    }
+
+    .ambient::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      backdrop-filter: blur(60px);
+      -webkit-backdrop-filter: blur(60px);
+      pointer-events: none;
+    }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: 440px;
+      margin: 0 auto;
+      padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem 2.5rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    #meta {
+      margin: 0.45rem 0 0;
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .glass {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(20px) saturate(1.35);
+      -webkit-backdrop-filter: blur(20px) saturate(1.35);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    #file-mode {
+      display: none;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    #file-mode p { margin: 0 0 0.75rem; font-size: 0.8rem; color: var(--muted); }
+
+    .field {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--text);
+      font-size: 0.9rem;
+      margin-bottom: 0.65rem;
+    }
+
+    .dials {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 360px) {
+      .dials { grid-template-columns: 1fr; }
+    }
+
+    .zone-card {
+      padding: 1.1rem 0.75rem 1.15rem;
+      text-align: center;
+      position: relative;
+      cursor: pointer;
+      transition: box-shadow 0.35s ease, opacity 0.25s ease;
+      opacity: 0.55;
+    }
+
+    .zone-card.is-on { opacity: 1; }
+    .zone-card.is-on.cuna { box-shadow: 0 0 48px var(--cuna-glow); }
+    .zone-card.is-on.setup { box-shadow: 0 0 48px var(--setup-glow); }
+
+    .zone-name {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .dial-wrap {
+      position: relative;
+      width: min(100%, 168px);
+      margin: 0 auto;
+      aspect-ratio: 1;
+      touch-action: none;
+      cursor: grab;
+    }
+
+    .dial-wrap:active { cursor: grabbing; }
+
+    .dial-glow {
+      position: absolute;
+      inset: 12%;
+      border-radius: 50%;
+      filter: blur(28px);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+    }
+
+    .zone-card.is-on .dial-glow { opacity: 0.85; }
+    .zone-card.cuna .dial-glow { background: var(--cuna); }
+    .zone-card.setup .dial-glow { background: var(--setup); }
+
+    .dial-svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .dial-track {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.12);
+      stroke-width: 6;
+      stroke-linecap: round;
+    }
+
+    .dial-arc {
+      fill: none;
+      stroke-width: 6;
+      stroke-linecap: round;
+      transition: none;
+    }
+
+    .zone-card.cuna .dial-arc { stroke: var(--cuna); filter: drop-shadow(0 0 6px var(--cuna-glow)); }
+    .zone-card.setup .dial-arc { stroke: var(--setup); filter: drop-shadow(0 0 6px var(--setup-glow)); }
+
+    .dial-center {
+      position: absolute;
+      inset: 22%;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(8px);
+    }
+
+    .dial-pct {
+      font-size: 1.65rem;
+      font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
+    .dial-pct span { font-size: 0.85rem; opacity: 0.55; }
+
+    details.panel {
+      margin-bottom: 0.75rem;
+    }
+
+    details.panel summary {
+      list-style: none;
+      padding: 0.9rem 1rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--muted);
+      user-select: none;
+    }
+
+    details.panel summary::-webkit-details-marker { display: none; }
+
+    details.panel[open] summary { color: var(--text); }
+
+    .panel-body {
+      padding: 0 1rem 1rem;
+      font-size: 0.82rem;
+    }
+
+    .panel-body label {
+      display: block;
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin: 0.5rem 0 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    select.field { appearance: none; }
+
+    .row { display: flex; gap: 0.5rem; margin-top: 0.65rem; }
+
+    .row button {
+      flex: 1;
+      padding: 0.6rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+
+    .row button.primary { background: rgba(255, 255, 255, 0.88); color: #111; font-weight: 600; }
+
+    .sched-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .sched-item button {
+      flex-shrink: 0;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.65rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+
+    .hidden { position: absolute; opacity: 0; pointer-events: none; height: 0; width: 0; }
+  </style>
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"></div>
+  <div class="app">
+    <header>
+      <h1>Habitación</h1>
+      <p id="meta">Conectando…</p>
+    </header>
+
+    <div class="glass" id="file-mode">
+      <input class="field" type="url" id="esp-base" placeholder="http://192.168.0.24">
+      <button type="button" class="row primary" style="width:100%;border:none;padding:0.65rem;border-radius:12px;" onclick="saveEspBase()">Conectar</button>
+    </div>
+
+    <div class="dials">
+      <article class="glass zone-card cuna" id="card-cuna">
+        <div class="zone-name">Cuna</div>
+        <div class="dial-wrap" data-dial="cuna">
+          <div class="dial-glow"></div>
+          <svg class="dial-svg" viewBox="0 0 120 120">
+            <circle class="dial-track" cx="60" cy="60" r="52"></circle>
+            <circle class="dial-arc" cx="60" cy="60" r="52" id="arc-cuna"
+              stroke-dasharray="326.7" stroke-dashoffset="326.7"></circle>
+          </svg>
+          <div class="dial-center">
+            <div class="dial-pct" id="cuna-pct">0<span>%</span></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="glass zone-card setup" id="card-setup">
+        <div class="zone-name">Setup</div>
+        <div class="dial-wrap" data-dial="setup">
+          <div class="dial-glow"></div>
+          <svg class="dial-svg" viewBox="0 0 120 120">
+            <circle class="dial-track" cx="60" cy="60" r="52"></circle>
+            <circle class="dial-arc" cx="60" cy="60" r="52" id="arc-setup"
+              stroke-dasharray="326.7" stroke-dashoffset="326.7"></circle>
+          </svg>
+          <div class="dial-center">
+            <div class="dial-pct" id="setup-pct">0<span>%</span></div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <details class="glass panel">
+      <summary>Ajustes</summary>
+      <div class="panel-body">
+        <label>Fade on (ms)</label>
+        <input class="field" type="number" id="cfg-fade-on" min="200" max="15000" step="50" value="1100">
+        <label>Fade off (ms)</label>
+        <input class="field" type="number" id="cfg-fade-off" min="200" max="15000" step="50" value="1400">
+        <label>Gamma</label>
+        <input class="field" type="number" id="cfg-gamma" min="1" max="4" step="0.1" value="2.2">
+        <label>Nivel on (%)</label>
+        <input class="field" type="number" id="cfg-default-on" min="1" max="100" value="50">
+        <div class="row">
+          <button type="button" class="primary" onclick="saveSettings()">Guardar</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="glass panel">
+      <summary>Modo alternado</summary>
+      <div class="panel-body">
+        <label>Intensidad %</label>
+        <input class="field" type="number" min="1" max="100" id="alt-level" value="80">
+        <label>Periodo (ms)</label>
+        <input class="field" type="number" min="200" max="5000" step="100" id="alt-period" value="700">
+        <div class="row">
+          <button type="button" onclick="saveAlternate()">Guardar</button>
+          <button type="button" class="primary" id="alt-btn" onclick="toggleAlternate()">Activar</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="glass panel">
+      <summary>Horarios</summary>
+      <div class="panel-body">
+        <div class="grid2">
+          <div><label>Hora</label><input class="field" type="number" id="sch-h" min="0" max="23" value="22"></div>
+          <div><label>Min</label><input class="field" type="number" id="sch-m" min="0" max="59" value="0"></div>
+        </div>
+        <label>Zona</label>
+        <select class="field" id="sch-zone">
+          <option value="both">Ambas</option>
+          <option value="cuna">Cuna</option>
+          <option value="setup">Setup</option>
+        </select>
+        <label>Acción</label>
+        <select class="field" id="sch-action">
+          <option value="off">Apagar</option>
+          <option value="on">Encender</option>
+          <option value="level">Nivel</option>
+        </select>
+        <label>Nivel</label>
+        <input class="field" type="number" id="sch-level" min="0" max="100" value="30">
+        <div class="row">
+          <button type="button" onclick="addSchedule()">Agregar</button>
+          <button type="button" class="primary" onclick="saveSchedules()">Guardar</button>
+        </div>
+        <div id="sched-list"></div>
+      </div>
+    </details>
+  </div>
+
+  <input type="range" class="hidden" id="cuna-slider" min="0" max="100" value="0">
+  <input type="range" class="hidden" id="setup-slider" min="0" max="100" value="0">
+
+<script>
+const DIAL_C = 2 * Math.PI * 52;
+const SWEEP = 210;
+const ARC_LEN = DIAL_C * SWEEP / 360;
+const U_GAP = DIAL_C - ARC_LEN;
+let schedules = [];
+let schedulesDirty = false;
+let alternateOn = false;
+const editingFields = new Set();
+const dialDragging = new Set();
+let settingsQuietUntil = 0;
+let schedulesQuietUntil = 0;
+let alternateQuietUntil = 0;
+const dialShown = { cuna: 0, setup: 0 };
+const dialGoal = { cuna: 0, setup: 0 };
+let dialAnimId = 0;
+
+function trackFieldEdits() {
+  document.querySelectorAll('.field').forEach((el) => {
+    if (!el.id) return;
+    el.addEventListener('focus', () => editingFields.add(el.id));
+    el.addEventListener('blur', () => {
+      setTimeout(() => editingFields.delete(el.id), 200);
+    });
+  });
+}
+
+function setFieldValue(id, value) {
+  if (editingFields.has(id)) return;
+  const el = document.getElementById(id);
+  if (el && String(el.value) !== String(value)) el.value = value;
+}
+
+function isFileMode() {
+  return location.protocol === 'file:';
+}
+
+function apiBase() {
+  if (!isFileMode()) return '';
+  const el = document.getElementById('esp-base');
+  const v = (el && el.value) || localStorage.getItem('espApiBase') || '';
+  return v.replace(/\/$/, '');
+}
+
+function saveEspBase() {
+  const v = document.getElementById('esp-base').value.trim().replace(/\/$/, '');
+  localStorage.setItem('espApiBase', v);
+  poll();
+}
+
+async function api(path, body) {
+  const base = apiBase();
+  if (isFileMode() && !base) throw new Error('Sin URL');
+  const r = await fetch(base + path, {
+    method: body ? 'POST' : 'GET',
+    headers: body ? {'Content-Type':'application/json'} : {},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await r.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (_) {
+    throw new Error('Respuesta no JSON: ' + text.slice(0, 80));
+  }
+  if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+  return data;
+}
+
+function updateDialUI(zone, level) {
+  const fine = Math.max(0, Math.min(100, +level));
+  const pct = Math.round(fine);
+  const arc = document.getElementById('arc-' + zone);
+  const card = document.getElementById('card-' + zone);
+  const pctEl = document.getElementById(zone + '-pct');
+  const slider = document.getElementById(zone + '-slider');
+  if (arc) {
+    const fill = ARC_LEN * (fine / 100);
+    arc.style.strokeDasharray = fill + ' ' + DIAL_C;
+    arc.style.strokeDashoffset = String(ARC_LEN - fill);
+  }
+  if (pctEl) pctEl.innerHTML = pct + '<span>%</span>';
+  if (card) card.classList.toggle('is-on', fine > 0.5);
+  if (slider) slider.value = pct;
+}
+
+function setDialGoal(zone, level, instant) {
+  dialGoal[zone] = Math.max(0, Math.min(100, +level));
+  if (instant) dialShown[zone] = dialGoal[zone];
+  startDialAnim();
+}
+
+function startDialAnim() {
+  if (dialAnimId) return;
+  const tick = () => {
+    let moving = false;
+    for (const z of ['cuna', 'setup']) {
+      if (dialDragging.has(z)) continue;
+      const d = dialShown[z];
+      const g = dialGoal[z];
+      if (Math.abs(d - g) > 0.25) {
+        dialShown[z] = d + (g - d) * 0.28;
+        moving = true;
+      } else {
+        dialShown[z] = g;
+      }
+      updateDialUI(z, dialShown[z]);
+    }
+    if (moving) dialAnimId = requestAnimationFrame(tick);
+    else dialAnimId = 0;
+  };
+  dialAnimId = requestAnimationFrame(tick);
+}
+
+let sendTimers = {};
+const expectLevel = { cuna: null, setup: null };
+const levelGen = { cuna: 0, setup: 0 };
+const lastSendAt = { cuna: 0, setup: 0 };
+
+function syncDialFromServer(zone, level) {
+  if (dialDragging.has(zone)) return;
+  if (expectLevel[zone] != null) {
+    if (Math.abs(+level - expectLevel[zone]) > 2) return;
+    expectLevel[zone] = null;
+  }
+  setDialGoal(zone, level, false);
+}
+
+function setLevel(zone, v, instant) {
+  const pct = Math.round(Math.max(0, Math.min(100, +v)));
+  expectLevel[zone] = pct;
+  if (instant) {
+    dialShown[zone] = pct;
+    dialGoal[zone] = pct;
+    updateDialUI(zone, pct);
+  } else {
+    setDialGoal(zone, pct, false);
+  }
+  const wait = Math.max(0, 35 - (Date.now() - lastSendAt[zone]));
+  clearTimeout(sendTimers[zone]);
+  sendTimers[zone] = setTimeout(() => sendLevel(zone, pct), wait);
+}
+
+async function sendLevel(zone, value) {
+  if (expectLevel[zone] !== value) return;
+  const gen = ++levelGen[zone];
+  lastSendAt[zone] = Date.now();
+  try {
+    await api('/api/command', { zone, action: 'level', value });
+  } catch (e) {
+    if (levelGen[zone] === gen) {
+      expectLevel[zone] = null;
+      document.getElementById('meta').textContent = e.message;
+    }
+  }
+}
+
+function percentOnU(el, clientX, clientY) {
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  let fromTop = Math.atan2(clientY - cy, clientX - cx) * (180 / Math.PI);
+  fromTop = (fromTop + 90 + 360) % 360;
+  const leftTip = 360 - (360 - SWEEP) / 2;
+  let along = (leftTip - fromTop + 360) % 360;
+  if (along > SWEEP) {
+    const gap = 360 - SWEEP;
+    return along - SWEEP < gap / 2 ? 100 : 0;
+  }
+  return (along / SWEEP) * 100;
+}
+
+function layoutU() {
+  const startFromTop = (360 - ((SWEEP + 360) / 2) + 360) % 360;
+  const rot = startFromTop - 90;
+  document.querySelectorAll('.dial-svg').forEach((svg) => {
+    svg.style.transform = 'rotate(' + rot + 'deg)';
+  });
+  document.querySelectorAll('.dial-track').forEach((track) => {
+    track.style.strokeDasharray = ARC_LEN + ' ' + U_GAP;
+    track.style.strokeDashoffset = '0';
+  });
+}
+
+function bindZone(zone) {
+  const card = document.getElementById('card-' + zone);
+  const wrap = card.querySelector('.dial-wrap');
+  let mode = null;
+  let timer = 0;
+  let sx = 0;
+  let sy = 0;
+
+  card.addEventListener('pointerdown', (e) => {
+    mode = 'pending';
+    sx = e.clientX;
+    sy = e.clientY;
+    dialDragging.add(zone);
+    card.setPointerCapture(e.pointerId);
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (mode !== 'pending') return;
+      mode = 'hold';
+      expectLevel[zone] = null;
+      cmd(zone, dialShown[zone] > 0.5 ? 'off' : 'on');
+    }, 250);
+  });
+
+  card.addEventListener('pointermove', (e) => {
+    if (mode !== 'pending' && mode !== 'drag') return;
+    if (mode === 'pending' && Math.hypot(e.clientX - sx, e.clientY - sy) > 8) {
+      clearTimeout(timer);
+      mode = 'drag';
+    }
+    if (mode === 'drag') setLevel(zone, percentOnU(wrap, e.clientX, e.clientY), true);
+  });
+
+  const end = () => {
+    clearTimeout(timer);
+    if (mode === 'pending') setLevel(zone, percentOnU(wrap, sx, sy), true);
+    mode = null;
+    dialDragging.delete(zone);
+  };
+  card.addEventListener('pointerup', end);
+  card.addEventListener('pointercancel', end);
+}
+
+async function cmd(zone, action) {
+  expectLevel[zone] = null;
+  await api('/api/command', { zone, action });
+  poll();
+}
+
+function renderSchedules() {
+  const el = document.getElementById('sched-list');
+  if (!schedules.length) {
+    el.innerHTML = '<p style="color:var(--muted);font-size:0.75rem;margin:0.5rem 0 0;">Sin horarios</p>';
+    return;
+  }
+  el.innerHTML = schedules.map((s, i) =>
+    `<div class="sched-item">
+      <span>${s.enabled ? '●' : '○'} ${String(s.hour).padStart(2,'0')}:${String(s.minute).padStart(2,'0')} · ${s.zone} · ${s.action}${s.action === 'level' ? ' ' + s.level + '%' : ''}</span>
+      <button type="button" onclick="removeSched(${i})">×</button>
+    </div>`).join('');
+}
+
+function addSchedule() {
+  schedulesDirty = true;
+  schedules.push({
+    enabled: true,
+    hour: +document.getElementById('sch-h').value,
+    minute: +document.getElementById('sch-m').value,
+    zone: document.getElementById('sch-zone').value,
+    action: document.getElementById('sch-action').value,
+    level: +document.getElementById('sch-level').value
+  });
+  renderSchedules();
+}
+
+function removeSched(i) {
+  schedulesDirty = true;
+  schedules.splice(i, 1);
+  renderSchedules();
+}
+
+async function saveSchedules() {
+  schedulesQuietUntil = Date.now() + 8000;
+  const res = await api('/api/schedule', { schedules });
+  if (res.schedules) schedules = res.schedules;
+  schedulesDirty = false;
+  schedulesQuietUntil = Date.now() + 8000;
+  renderSchedules();
+  poll();
+}
+
+function readSettingsForm() {
+  return {
+    fadeOnMs: +document.getElementById('cfg-fade-on').value,
+    fadeOffMs: +document.getElementById('cfg-fade-off').value,
+    fadeGamma: +document.getElementById('cfg-gamma').value,
+    defaultOnLevel: +document.getElementById('cfg-default-on').value
+  };
+}
+
+function applySettingsFromServer(st, force) {
+  if (!st) return;
+  if (!force && Date.now() < settingsQuietUntil) return;
+
+  const map = [
+    ['cfg-fade-on', st.fadeOnMs],
+    ['cfg-fade-off', st.fadeOffMs],
+    ['cfg-gamma', st.fadeGamma],
+    ['cfg-default-on', st.defaultOnLevel]
+  ];
+  for (const [id, val] of map) {
+    if (!Number.isFinite(val)) continue;
+    if (force || !editingFields.has(id)) setFieldValue(id, val);
+  }
+}
+
+async function saveSettings() {
+  const meta = document.getElementById('meta');
+  try {
+    const payload = readSettingsForm();
+    if (Object.values(payload).some((v) => !Number.isFinite(v))) {
+      meta.textContent = 'Valor inválido';
+      return;
+    }
+
+    settingsQuietUntil = Date.now() + 8000;
+    document.querySelectorAll('#cfg-fade-on,#cfg-fade-off,#cfg-gamma,#cfg-default-on')
+      .forEach((el) => editingFields.delete(el.id));
+
+    const res = await api('/api/settings', { settings: payload });
+    if (!res.settings) throw new Error('Sin respuesta');
+
+    applySettingsFromServer(res.settings, true);
+    settingsQuietUntil = Date.now() + 8000;
+    poll();
+  } catch (e) {
+    settingsQuietUntil = 0;
+    meta.textContent = e.message;
+  }
+}
+
+function applyAlternateFromServer(alt, force) {
+  if (!alt) return;
+  if (!force && Date.now() < alternateQuietUntil) return;
+  setFieldValue('alt-period', alt.period);
+  setFieldValue('alt-level', alt.level);
+  alternateOn = !!alt.enabled;
+  document.getElementById('alt-btn').textContent = alternateOn ? 'Detener' : 'Activar';
+}
+
+async function saveAlternate() {
+  alternateQuietUntil = Date.now() + 8000;
+  ['alt-period', 'alt-level'].forEach((id) => editingFields.delete(id));
+  const res = await api('/api/alternate', {
+    period: +document.getElementById('alt-period').value,
+    level: +document.getElementById('alt-level').value
+  });
+  applyAlternateFromServer(res.alternate, true);
+  alternateQuietUntil = Date.now() + 8000;
+}
+
+async function toggleAlternate() {
+  alternateOn = !alternateOn;
+  const res = await api('/api/alternate', {
+    period: +document.getElementById('alt-period').value,
+    level: +document.getElementById('alt-level').value,
+    enabled: alternateOn
+  });
+  applyAlternateFromServer(res.alternate, true);
+  alternateQuietUntil = Date.now() + 8000;
+  poll();
+}
+
+async function poll() {
+  try {
+    const s = await api('/api/state');
+    if (!s.cuna || !s.setup) throw new Error('Estado inválido');
+    document.getElementById('meta').textContent = s.ip + ' · ' + s.clock;
+    for (const z of ['cuna', 'setup']) {
+      if (dialDragging.has(z)) continue;
+      const lv = s[z].levelFine != null ? s[z].levelFine : s[z].level;
+      syncDialFromServer(z, lv);
+    }
+    applyAlternateFromServer(s.alternate, false);
+    applySettingsFromServer(s.settings, false);
+    if (!schedulesDirty && Date.now() >= schedulesQuietUntil) {
+      schedules = s.schedules || [];
+      renderSchedules();
+    }
+  } catch (e) {
+    document.getElementById('meta').textContent = e.message;
+  }
+}
+
+layoutU();
+trackFieldEdits();
+['cuna', 'setup'].forEach(bindZone);
+setDialGoal('cuna', 0, true);
+setDialGoal('setup', 0, true);
+
+if (isFileMode()) {
+  document.getElementById('file-mode').style.display = 'block';
+  const saved = localStorage.getItem('espApiBase');
+  if (saved) document.getElementById('esp-base').value = saved;
+}
+
+poll();
+setInterval(poll, 120);
+</script>
+</body>
+</html>
+
+)rawliteral";
