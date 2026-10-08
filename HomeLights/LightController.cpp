@@ -1,8 +1,7 @@
 #include "LightController.h"
 
 LightController::LightController()
-    : zones_{LightZone(ZONE_CUNA, GPIO_LIGHT_CUNA, LEDC_CHANNEL_CUNA),
-             LightZone(ZONE_SETUP, GPIO_LIGHT_SETUP, LEDC_CHANNEL_SETUP)} {}
+    : zones_{LightZone(GPIO_LIGHT_CUNA), LightZone(GPIO_LIGHT_SETUP)} {}
 
 void LightController::begin() {
   for (auto& z : zones_) {

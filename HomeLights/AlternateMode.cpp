@@ -26,6 +26,8 @@ void AlternateMode::setEnabled(bool enabled, LightController& lights) {
     phaseSetupOn_ = false;
     applyPhase(lights);
   }
+  // Al desactivar no se restaura el estado previo: las zonas quedan en la
+  // última fase aplicada por el modo alternado (comportamiento intencional).
 }
 
 void AlternateMode::setPeriodMs(uint32_t ms) {

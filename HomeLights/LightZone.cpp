@@ -22,8 +22,7 @@ float linearToPwmCurve(float linear) {
 }
 }  // namespace
 
-LightZone::LightZone(LightZoneId id, uint8_t gpio, uint8_t ledcChannel)
-    : id_(id), gpio_(gpio), ledcChannel_(ledcChannel) {}
+LightZone::LightZone(uint8_t gpio) : gpio_(gpio) {}
 
 float LightZone::percentToBrightness(uint8_t percent) {
   return clamp01(static_cast<float>(percent) / 100.0f);

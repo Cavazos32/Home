@@ -406,12 +406,16 @@
 const U_START = 150;
 const U_SWEEP = 240;
 const HOLD_MS = 150;
+const POLL_MS = 350;
 let schedules = [];
 let schedulesDirty = false;
 let alternateOn = false;
 const editingFields = new Set();
 const dialDragging = new Set();
 let settingsQuietUntil = 0;
+let settingsSaveToken = 0;
+let pollRunning = false;
+let pollQueued = false;
 let schedulesQuietUntil = 0;
 let alternateQuietUntil = 0;
 const dialShown = { cuna: 0, setup: 0 };
@@ -456,13 +460,14 @@ function saveEspBase() {
   poll();
 }
 
-async function api(path, body) {
+async function api(path, body, fetchOpts) {
   const base = apiBase();
   if (isFileMode() && !base) throw new Error('Sin URL');
   const r = await fetch(base + path, {
     method: body ? 'POST' : 'GET',
     headers: body ? {'Content-Type':'application/json'} : {},
-    body: body ? JSON.stringify(body) : undefined
+    body: body ? JSON.stringify(body) : undefined,
+    signal: fetchOpts && fetchOpts.signal
   });
   const text = await r.text();
   let data = null;
@@ -766,9 +771,10 @@ function readSettingsForm() {
 
 const SETTINGS_FIELD_IDS = ['cfg-fade-on', 'cfg-fade-off', 'cfg-gamma', 'cfg-default-on'];
 
-function applySettingsFromServer(st, force) {
+function applySettingsFromServer(st, force, pollSettingsToken) {
   if (!st) return;
   if (!force && Date.now() < settingsQuietUntil) return;
+  if (!force && pollSettingsToken != null && pollSettingsToken !== settingsSaveToken) return;
 
   const map = [
     ['cfg-fade-on', st.fadeOnMs],
@@ -792,6 +798,7 @@ async function saveSettings() {
       return;
     }
 
+    settingsSaveToken++;
     settingsQuietUntil = Date.now() + 10000;
     SETTINGS_FIELD_IDS.forEach((id) => editingFields.delete(id));
 
@@ -803,6 +810,7 @@ async function saveSettings() {
     settingsQuietUntil = Date.now() + 3000;
     poll();
   } catch (e) {
+    settingsSaveToken--;
     settingsQuietUntil = 0;
     meta.textContent = e.message;
   }
@@ -840,22 +848,40 @@ async function toggleAlternate() {
   poll();
 }
 
+function applyStateFromPoll(s, pollSettingsToken) {
+  if (!s.cuna || !s.setup) throw new Error('Estado inválido');
+  document.getElementById('meta').textContent = s.ip + ' · ' + s.clock;
+  for (const z of ['cuna', 'setup']) {
+    syncDialFromServer(z, s[z]);
+  }
+  applyAlternateFromServer(s.alternate, false);
+  applySettingsFromServer(s.settings, false, pollSettingsToken);
+  if (!schedulesDirty && Date.now() >= schedulesQuietUntil) {
+    schedules = s.schedules || [];
+    renderSchedules();
+  }
+}
+
 async function poll() {
+  if (pollRunning) {
+    pollQueued = true;
+    return;
+  }
+  pollRunning = true;
+  const pollSettingsToken = settingsSaveToken;
   try {
     const s = await api('/api/state');
-    if (!s.cuna || !s.setup) throw new Error('Estado inválido');
-    document.getElementById('meta').textContent = s.ip + ' · ' + s.clock;
-    for (const z of ['cuna', 'setup']) {
-      syncDialFromServer(z, s[z]);
-    }
-    applyAlternateFromServer(s.alternate, false);
-    applySettingsFromServer(s.settings, false);
-    if (!schedulesDirty && Date.now() >= schedulesQuietUntil) {
-      schedules = s.schedules || [];
-      renderSchedules();
-    }
+    applyStateFromPoll(s, pollSettingsToken);
   } catch (e) {
-    document.getElementById('meta').textContent = e.message;
+    if (e.name !== 'AbortError') {
+      document.getElementById('meta').textContent = e.message;
+    }
+  } finally {
+    pollRunning = false;
+    if (pollQueued) {
+      pollQueued = false;
+      poll();
+    }
   }
 }
 
@@ -911,7 +937,7 @@ if (isFileMode()) {
 }
 
 poll();
-setInterval(poll, 120);
+setInterval(poll, POLL_MS);
 </script>
 </body>
 </html>
