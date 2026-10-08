@@ -59,7 +59,11 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       z-index: 1;
       max-width: 440px;
       margin: 0 auto;
-      padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem 2.5rem;
+      padding:
+        max(1.25rem, calc(env(safe-area-inset-top) + 0.75rem))
+        max(1rem, env(safe-area-inset-right))
+        max(2rem, calc(env(safe-area-inset-bottom) + 1rem))
+        max(1rem, env(safe-area-inset-left));
     }
 
     header {
@@ -139,6 +143,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     .field {
       width: 100%;
+      min-height: 44px;
       padding: 0.65rem 0.85rem;
       border-radius: 12px;
       border: 1px solid var(--glass-border);
@@ -471,15 +476,17 @@ let schedulesQuietUntil = 0;
 let alternateQuietUntil = 0;
 const dialShown = { cuna: 0, setup: 0 };
 const dialGoal = { cuna: 0, setup: 0 };
-let dialAnimId = 0;
+const dialAnimId = { cuna: 0, setup: 0 };
+const dirtyFields = new Set();
 
 function trackFieldEdits() {
   document.querySelectorAll('.field').forEach((el) => {
     if (!el.id) return;
     const markEditing = () => editingFields.add(el.id);
+    const markDirty = () => dirtyFields.add(el.id);
     el.addEventListener('focus', markEditing);
-    el.addEventListener('input', markEditing);
-    el.addEventListener('change', markEditing);
+    el.addEventListener('input', markDirty);
+    el.addEventListener('change', markDirty);
     el.addEventListener('blur', () => {
       setTimeout(() => {
         if (document.activeElement !== el) editingFields.delete(el.id);
@@ -488,8 +495,8 @@ function trackFieldEdits() {
   });
 }
 
-function setFieldValue(id, value) {
-  if (editingFields.has(id)) return;
+function setFieldValue(id, value, force = false) {
+  if (!force && (editingFields.has(id) || dirtyFields.has(id))) return;
   const el = document.getElementById(id);
   if (el && String(el.value) !== String(value)) el.value = value;
 }
@@ -564,6 +571,7 @@ function updateDialUI(zone, level) {
   if (arc) {
     arc.style.strokeDasharray = fine + ' 100';
     arc.style.strokeDashoffset = '0';
+    arc.style.visibility = fine <= 0.05 ? 'hidden' : 'visible';
   }
   if (pctEl) pctEl.innerHTML = pct + '<span>%</span>';
   if (slider) slider.value = pct;
@@ -572,29 +580,25 @@ function updateDialUI(zone, level) {
 function setDialGoal(zone, level, instant) {
   dialGoal[zone] = Math.max(0, Math.min(100, +level));
   if (instant) dialShown[zone] = dialGoal[zone];
-  startDialAnim();
+  startDialAnim(zone);
 }
 
-function startDialAnim() {
-  if (dialAnimId) return;
+function startDialAnim(zone) {
+  if (dialAnimId[zone]) return;
   const tick = () => {
-    let moving = false;
-    for (const z of ['cuna', 'setup']) {
-      if (dialDragging.has(z)) continue;
-      const d = dialShown[z];
-      const g = dialGoal[z];
-      if (Math.abs(d - g) > 0.25) {
-        dialShown[z] = d + (g - d) * 0.28;
-        moving = true;
-      } else {
-        dialShown[z] = g;
-      }
-      updateDialUI(z, dialShown[z]);
+    if (dialDragging.has(zone)) {
+      dialAnimId[zone] = 0;
+      return;
     }
-    if (moving) dialAnimId = requestAnimationFrame(tick);
-    else dialAnimId = 0;
+    const d = dialShown[zone];
+    const g = dialGoal[zone];
+    const moving = Math.abs(d - g) > 0.25;
+    dialShown[zone] = moving ? d + (g - d) * 0.28 : g;
+    updateDialUI(zone, dialShown[zone]);
+    if (moving) dialAnimId[zone] = requestAnimationFrame(tick);
+    else dialAnimId[zone] = 0;
   };
-  dialAnimId = requestAnimationFrame(tick);
+  dialAnimId[zone] = requestAnimationFrame(tick);
 }
 
 let sendTimers = {};
@@ -622,7 +626,9 @@ function syncDialFromServer(zone, z) {
   }
 
   if (phase === 'off') {
-    updateDialUI(zone, picked[zone]);
+    dialShown[zone] = 0;
+    dialGoal[zone] = 0;
+    updateDialUI(zone, 0);
     return;
   }
 
@@ -835,8 +841,7 @@ function applySettingsFromServer(st, force, pollSettingsToken) {
   ];
   for (const [id, val] of map) {
     if (!Number.isFinite(val)) continue;
-    if (!force && editingFields.has(id)) continue;
-    setFieldValue(id, val);
+    setFieldValue(id, val, force);
   }
 }
 
@@ -851,13 +856,12 @@ async function saveSettings() {
 
     settingsSaveToken++;
     settingsQuietUntil = Date.now() + 10000;
-    SETTINGS_FIELD_IDS.forEach((id) => editingFields.delete(id));
 
     const res = await api('/api/settings', { settings: payload });
     if (!res.settings) throw new Error('Sin respuesta');
 
+    SETTINGS_FIELD_IDS.forEach((id) => dirtyFields.delete(id));
     applySettingsFromServer(res.settings, true);
-    SETTINGS_FIELD_IDS.forEach((id) => editingFields.delete(id));
     settingsQuietUntil = Date.now() + 3000;
     poll();
   } catch (e) {
@@ -870,21 +874,26 @@ async function saveSettings() {
 function applyAlternateFromServer(alt, force) {
   if (!alt) return;
   if (!force && Date.now() < alternateQuietUntil) return;
-  setFieldValue('alt-period', alt.period);
-  setFieldValue('alt-level', alt.level);
+  setFieldValue('alt-period', alt.period, force);
+  setFieldValue('alt-level', alt.level, force);
   alternateOn = !!alt.enabled;
   document.getElementById('alt-btn').textContent = alternateOn ? 'Detener' : 'Activar';
 }
 
 async function saveAlternate() {
   alternateQuietUntil = Date.now() + 8000;
-  ['alt-period', 'alt-level'].forEach((id) => editingFields.delete(id));
-  const res = await api('/api/alternate', {
-    period: +document.getElementById('alt-period').value,
-    level: +document.getElementById('alt-level').value
-  });
-  applyAlternateFromServer(res.alternate, true);
-  alternateQuietUntil = Date.now() + 8000;
+  try {
+    const res = await api('/api/alternate', {
+      period: +document.getElementById('alt-period').value,
+      level: +document.getElementById('alt-level').value
+    });
+    ['alt-period', 'alt-level'].forEach((id) => dirtyFields.delete(id));
+    applyAlternateFromServer(res.alternate, true);
+    alternateQuietUntil = Date.now() + 8000;
+  } catch (e) {
+    alternateQuietUntil = 0;
+    document.getElementById('datetime').textContent = e.message;
+  }
 }
 
 async function toggleAlternate() {
@@ -894,6 +903,7 @@ async function toggleAlternate() {
     level: +document.getElementById('alt-level').value,
     enabled: alternateOn
   });
+  ['alt-period', 'alt-level'].forEach((id) => dirtyFields.delete(id));
   applyAlternateFromServer(res.alternate, true);
   alternateQuietUntil = Date.now() + 8000;
   poll();

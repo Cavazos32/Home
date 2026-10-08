@@ -57,16 +57,24 @@ bool LightSettingsStore::fromJson(JsonObject obj) {
   LightSettings next = data_;
 
   if (!obj["fadeOnMs"].isNull()) {
-    next.fadeOnMs = obj["fadeOnMs"].as<uint32_t>();
+    const int value = obj["fadeOnMs"].as<int>();
+    if (value < 200 || value > 15000) return false;
+    next.fadeOnMs = static_cast<uint32_t>(value);
   }
   if (!obj["fadeOffMs"].isNull()) {
-    next.fadeOffMs = obj["fadeOffMs"].as<uint32_t>();
+    const int value = obj["fadeOffMs"].as<int>();
+    if (value < 200 || value > 15000) return false;
+    next.fadeOffMs = static_cast<uint32_t>(value);
   }
   if (!obj["fadeGamma"].isNull()) {
-    next.fadeGamma = obj["fadeGamma"].as<float>();
+    const float value = obj["fadeGamma"].as<float>();
+    if (value < 1.0f || value > 4.0f) return false;
+    next.fadeGamma = value;
   }
   if (!obj["defaultOnLevel"].isNull()) {
-    next.defaultOnLevel = obj["defaultOnLevel"].as<uint8_t>();
+    const int value = obj["defaultOnLevel"].as<int>();
+    if (value < 1 || value > 100) return false;
+    next.defaultOnLevel = static_cast<uint8_t>(value);
   }
 
   return applyAndSave(next);

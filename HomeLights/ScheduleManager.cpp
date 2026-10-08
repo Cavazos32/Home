@@ -143,17 +143,27 @@ bool ScheduleManager::fromJson(JsonArray arr) {
 
     ScheduleEntry e;
     e.enabled = o["enabled"] | false;
-    e.hour = o["hour"] | 0;
-    e.minute = o["minute"] | 0;
-    e.level = o["level"] | 50;
+    const int hour = o["hour"] | 0;
+    const int minute = o["minute"] | 0;
+    const int level = o["level"] | 50;
+    if (hour < 0 || hour > 23 ||
+        minute < 0 || minute > 59 ||
+        level < 0 || level > 100) {
+      return false;
+    }
+    e.hour = static_cast<uint8_t>(hour);
+    e.minute = static_cast<uint8_t>(minute);
+    e.level = static_cast<uint8_t>(level);
 
     const char* zone = o["zone"] | "both";
     if (strcmp(zone, "cuna") == 0) {
       e.zone = SCHED_ZONE_CUNA;
     } else if (strcmp(zone, "setup") == 0) {
       e.zone = SCHED_ZONE_SETUP;
-    } else {
+    } else if (strcmp(zone, "both") == 0) {
       e.zone = SCHED_ZONE_BOTH;
+    } else {
+      return false;
     }
 
     const char* action = o["action"] | "off";
@@ -161,11 +171,11 @@ bool ScheduleManager::fromJson(JsonArray arr) {
       e.action = SCHED_ON;
     } else if (strcmp(action, "level") == 0) {
       e.action = SCHED_LEVEL;
-    } else {
+    } else if (strcmp(action, "off") == 0) {
       e.action = SCHED_OFF;
+    } else {
+      return false;
     }
-
-    if (e.hour > 23 || e.minute > 59 || e.level > 100) return false;
 
     tmp[n++] = e;
   }

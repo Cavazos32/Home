@@ -108,9 +108,26 @@ void handleSettings() {
     return;
   }
 
+  const uint8_t previousOnLevel = appSettings().get().defaultOnLevel;
+  bool activeZones[ZONE_COUNT];
+  for (uint8_t i = 0; i < ZONE_COUNT; ++i) {
+    activeZones[i] = lights.zone(static_cast<LightZoneId>(i)).isOn();
+  }
+
   if (!appSettings().fromJson(obj)) {
     sendJson(400, "{\"error\":\"invalid settings\"}");
     return;
+  }
+
+  const LightSettings& settings = appSettings().get();
+  if (settings.defaultOnLevel != previousOnLevel && !alternate.isEnabled()) {
+    for (uint8_t i = 0; i < ZONE_COUNT; ++i) {
+      if (activeZones[i]) {
+        lights.fadeLight(static_cast<LightZoneId>(i),
+                         settings.defaultOnLevel,
+                         settings.fadeOnMs);
+      }
+    }
   }
 
   JsonDocument outDoc;
@@ -160,12 +177,27 @@ void handleAlternate() {
     return;
   }
 
+  uint32_t period = alternate.periodMs();
+  uint8_t level = alternate.level();
   if (!doc["period"].isNull()) {
-    alternate.setPeriodMs(doc["period"].as<uint32_t>());
+    const int value = doc["period"].as<int>();
+    if (value < 200 || value > 5000) {
+      sendJson(400, "{\"error\":\"invalid alternate period\"}");
+      return;
+    }
+    period = static_cast<uint32_t>(value);
   }
   if (!doc["level"].isNull()) {
-    alternate.setLevel(doc["level"].as<uint8_t>());
+    const int value = doc["level"].as<int>();
+    if (value < 1 || value > 100) {
+      sendJson(400, "{\"error\":\"invalid alternate level\"}");
+      return;
+    }
+    level = static_cast<uint8_t>(value);
   }
+
+  alternate.setPeriodMs(period);
+  alternate.setLevel(level);
   if (!doc["enabled"].isNull()) {
     alternate.setEnabled(doc["enabled"].as<bool>(), lights);
   }
@@ -196,8 +228,14 @@ void handleCommand() {
   const char* action = doc["action"] | "level";
 
   if (strcmp(action, "alternate") == 0) {
-    alternate.setPeriodMs(doc["period"] | alternate.periodMs());
-    alternate.setLevel(doc["level"] | alternate.level());
+    const int period = doc["period"] | static_cast<int>(alternate.periodMs());
+    const int level = doc["level"] | static_cast<int>(alternate.level());
+    if (period < 200 || period > 5000 || level < 1 || level > 100) {
+      sendJson(400, "{\"error\":\"invalid alternate settings\"}");
+      return;
+    }
+    alternate.setPeriodMs(static_cast<uint32_t>(period));
+    alternate.setLevel(static_cast<uint8_t>(level));
     const bool en = doc["enabled"] | false;
     alternate.setEnabled(en, lights);
     sendJson(200, "{\"ok\":true}");
@@ -207,6 +245,24 @@ void handleCommand() {
   const char* zoneName = doc["zone"] | "both";
   const int value = doc["value"] | 0;
   uint32_t duration = doc["duration"] | 0;
+  const bool isLevel = strcmp(action, "level") == 0;
+  const bool isFade = strcmp(action, "fade") == 0;
+  const bool validAction = isLevel || isFade ||
+      strcmp(action, "on") == 0 ||
+      strcmp(action, "off") == 0 ||
+      strcmp(action, "toggle") == 0;
+  if (!validAction) {
+    sendJson(400, "{\"error\":\"unknown action\"}");
+    return;
+  }
+  if ((isLevel || isFade) && (value < 0 || value > 100)) {
+    sendJson(400, "{\"error\":\"invalid level\"}");
+    return;
+  }
+  if (duration > 60000) {
+    sendJson(400, "{\"error\":\"invalid duration\"}");
+    return;
+  }
   if (duration == 0) {
     const LightSettings& cfg = appSettings().get();
     const int fadeValue = doc["value"] | 0;
