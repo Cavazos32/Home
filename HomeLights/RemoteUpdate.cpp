@@ -19,7 +19,8 @@ static constexpr size_t kMaxManifestBytes = 1024;
 // Seguridad TLS: validamos el certificado del servidor contra las CA raíz de
 // GitHub embebidas en GitHubRootCA.h (no se usa setInsecure()). Así nadie en
 // medio de la red puede servir un firmware falso. Además el .bin se verifica
-// con el MD5 y SHA-256 del manifiesto antes de marcarlo como arrancable.
+// con el MD5 del manifiesto antes de marcarlo como arrancable.
+// (HTTPUpdate de este core no tiene setSHA256sum.)
 static void configureTls(NetworkClientSecure& client) {
   client.setCACert(GITHUB_ROOT_CA);
   client.setTimeout(kHttpTimeoutMs / 1000);
@@ -191,13 +192,19 @@ void RemoteUpdate::runCheck() {
   NetworkClientSecure client;
   configureTls(client);
 
+  if (md5.length() != 32) {
+    setStatus("error", "Manifiesto sin MD5 (este core no verifica SHA-256)");
+    _nextCheckMs = millis() + _retryMs;
+    return;
+  }
+
   HTTPUpdate updater(static_cast<int>(kHttpTimeoutMs));
   updater.rebootOnUpdate(false);
   updater.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-  // Update.end() rechaza la imagen si el MD5/SHA-256 no coincide; el firmware
-  // actual sigue intacto y no se cambia la partición de arranque.
-  if (md5.length() == 32) updater.setMD5sum(md5);
-  if (sha256.length() == 64) updater.setSHA256sum(sha256);
+  // Update.end() rechaza la imagen si el MD5 no coincide; el firmware actual
+  // sigue intacto y no se cambia la partición de arranque.
+  updater.setMD5sum(md5);
+  (void)sha256;
   updater.onStart([this]() { _flashing = true; });
   updater.onProgress([this](int cur, int total) {
     if (total > 0) _progress = static_cast<int>((static_cast<int64_t>(cur) * 100) / total);
