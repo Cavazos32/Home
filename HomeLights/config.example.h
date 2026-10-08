@@ -34,6 +34,9 @@
 
 #define MAX_SCHEDULES 10
 
+#define WEATHER_LAT 26.09
+#define WEATHER_LON -98.28
+
 // ---------------------------------------------------------------------------
 // OTA por descarga desde internet (el ESP32 busca y baja el firmware él solo)
 // ---------------------------------------------------------------------------

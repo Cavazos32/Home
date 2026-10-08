@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Habitación</title>
+  <title>HOME</title>
   <style>
     :root {
       --text: rgba(255, 255, 255, 0.92);
@@ -63,16 +63,55 @@
 
     header h1 {
       margin: 0;
-      font-size: 1.35rem;
-      font-weight: 500;
-      letter-spacing: 0.02em;
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
     }
 
-    #meta {
+    .header-meta {
       margin: 0.45rem 0 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem 0.65rem;
+    }
+
+    #datetime {
+      margin: 0;
       font-size: 0.72rem;
       color: var(--muted);
       line-height: 1.4;
+    }
+
+    .weather-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.28rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      color: var(--text);
+    }
+
+    .weather-pill.is-hidden {
+      display: none;
+    }
+
+    .weather-icon {
+      display: flex;
+      align-items: center;
+      line-height: 0;
+    }
+
+    .weather-icon svg {
+      width: 17px;
+      height: 17px;
+      display: block;
+    }
+
+    .weather-temp {
+      font-variant-numeric: tabular-nums;
     }
 
     .glass {
@@ -283,8 +322,14 @@
   <div class="ambient" aria-hidden="true"></div>
   <div class="app">
     <header>
-      <h1>Habitación</h1>
-      <p id="meta">Conectando…</p>
+      <h1>HOME</h1>
+      <div class="header-meta">
+        <p id="datetime">Conectando…</p>
+        <div class="weather-pill glass is-hidden" id="weather-pill" aria-hidden="true">
+          <span class="weather-icon" id="weather-icon"></span>
+          <span class="weather-temp" id="weather-temp"></span>
+        </div>
+      </div>
     </header>
 
     <div class="glass" id="file-mode">
@@ -801,11 +846,179 @@ async function toggleAlternate() {
   poll();
 }
 
+const WEATHER_CACHE_KEY = 'homeWeatherV1';
+const WEATHER_FETCH_MS = 30 * 60 * 1000;
+const WEATHER_CACHE_MAX_MS = 2 * 60 * 60 * 1000;
+
+let weatherLat = null;
+let weatherLon = null;
+let weatherTimerStarted = false;
+let lastDateTimeMinuteKey = '';
+
+const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+function clockToDate(clock) {
+  if (!clock || clock.indexOf('NTP') >= 0 || clock.indexOf('Sincronizando') >= 0) {
+    return new Date();
+  }
+  const m = String(clock).match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
+  if (!m) return new Date();
+  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+}
+
+function formatDateTimeEs(d) {
+  let h = d.getHours();
+  const min = d.getMinutes();
+  const pm = h >= 12;
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  const minStr = String(min).padStart(2, '0');
+  const ampm = pm ? 'p.m.' : 'a.m.';
+  return DIAS_SEMANA[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()] +
+    ' · ' + h + ':' + minStr + ' ' + ampm;
+}
+
+function updateDateTimeFromClock(clock) {
+  const d = clockToDate(clock);
+  const key = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate() + '-' + d.getHours() + '-' + d.getMinutes();
+  if (key === lastDateTimeMinuteKey) return;
+  lastDateTimeMinuteKey = key;
+  document.getElementById('datetime').textContent = formatDateTimeEs(d);
+}
+
+function isDayLocal(d) {
+  const h = d.getHours();
+  return h >= 7 && h < 19;
+}
+
+function wmoKind(code) {
+  if (code <= 1) return 'clear';
+  if (code <= 3 || (code >= 45 && code <= 48)) return 'cloud';
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82) || (code >= 95 && code <= 99)) return 'rain';
+  if (code >= 71 && code <= 77) return 'cloud';
+  return 'cloud';
+}
+
+function weatherDesc(kind, isDay) {
+  if (kind === 'clear') return isDay ? 'despejado' : 'despejado';
+  if (kind === 'rain') return 'lluvia';
+  return 'nublado';
+}
+
+function weatherIconSvg(kind, isDay) {
+  if (kind === 'clear' && isDay) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="var(--cuna)"/><g stroke="var(--cuna)" stroke-width="1.6" stroke-linecap="round"><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M5.6 18.4l1.6-1.6M16.8 7.2l1.6-1.6"/></g></svg>';
+  }
+  if (kind === 'clear' && !isDay) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4.2a6.5 6.5 0 1 0 7.8 9.4A5.2 5.2 0 0 1 12 19H8a5 5 0 0 1-.2-10 5.8 5.8 0 0 1 6.7-4.8z" fill="var(--setup)"/></svg>';
+  }
+  if (kind === 'rain') {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14a5 5 0 0 1-.2-10 5.5 5.5 0 0 1 10.8 1.8A4.2 4.2 0 0 1 19 18H8a4 4 0 0 1-1-4z" fill="none" stroke="var(--muted)" stroke-width="1.4"/><path d="M9 19l-.8 2M12 19l-.8 2M15 19l-.8 2" stroke="var(--setup)" stroke-width="1.4" stroke-linecap="round"/></svg>';
+  }
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14a5 5 0 0 1-.2-10 5.5 5.5 0 0 1 10.8 1.8A4.2 4.2 0 0 1 19 18H8a4 4 0 0 1-1-4z" fill="var(--muted)" opacity="0.85"/></svg>';
+}
+
+function readWeatherCache() {
+  try {
+    const raw = localStorage.getItem(WEATHER_CACHE_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    if (!o || !o.data || !o.ts) return null;
+    return o;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeWeatherCache(data) {
+  try {
+    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+  } catch (_) {}
+}
+
+function hideWeatherPill() {
+  const pill = document.getElementById('weather-pill');
+  pill.classList.add('is-hidden');
+  pill.setAttribute('aria-hidden', 'true');
+  pill.removeAttribute('aria-label');
+}
+
+function renderWeather(data) {
+  if (!data || data.temp == null) {
+    hideWeatherPill();
+    return;
+  }
+  const isDay = data.isDay != null ? !!data.isDay : isDayLocal(new Date());
+  const kind = wmoKind(+data.code || 0);
+  const temp = Math.round(+data.temp);
+  const pill = document.getElementById('weather-pill');
+  document.getElementById('weather-icon').innerHTML = weatherIconSvg(kind, isDay);
+  document.getElementById('weather-temp').textContent = temp + '°';
+  pill.classList.remove('is-hidden');
+  pill.setAttribute('aria-hidden', 'false');
+  pill.setAttribute('aria-label', 'Clima: ' + weatherDesc(kind, isDay) + ', ' + temp + ' grados');
+}
+
+async function fetchWeatherFromNetwork() {
+  if (weatherLat == null || weatherLon == null) return;
+  const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + weatherLat +
+    '&longitude=' + weatherLon + '&current=temperature_2m,weather_code,is_day';
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP');
+    const j = await r.json();
+    const cur = j && j.current;
+    if (!cur || cur.temperature_2m == null) throw new Error('sin datos');
+    const data = {
+      temp: cur.temperature_2m,
+      code: cur.weather_code,
+      isDay: cur.is_day === 1
+    };
+    writeWeatherCache(data);
+    renderWeather(data);
+  } catch (_) {
+    const cached = readWeatherCache();
+    if (cached && Date.now() - cached.ts < WEATHER_CACHE_MAX_MS) {
+      renderWeather(cached.data);
+    } else {
+      hideWeatherPill();
+    }
+  }
+}
+
+function applyWeatherCacheIfFresh() {
+  const cached = readWeatherCache();
+  if (cached && Date.now() - cached.ts < WEATHER_CACHE_MAX_MS) {
+    renderWeather(cached.data);
+  }
+}
+
+function startWeatherSchedule() {
+  if (weatherTimerStarted) return;
+  weatherTimerStarted = true;
+  applyWeatherCacheIfFresh();
+  fetchWeatherFromNetwork();
+  setInterval(fetchWeatherFromNetwork, WEATHER_FETCH_MS);
+}
+
+function syncWeatherCoords(s) {
+  if (s.weatherLat == null || s.weatherLon == null) return;
+  const lat = +s.weatherLat;
+  const lon = +s.weatherLon;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+  const changed = weatherLat !== lat || weatherLon !== lon;
+  weatherLat = lat;
+  weatherLon = lon;
+  if (changed || !weatherTimerStarted) startWeatherSchedule();
+}
+
 async function poll() {
   try {
     const s = await api('/api/state');
     if (!s.cuna || !s.setup) throw new Error('Estado inválido');
-    document.getElementById('meta').textContent = s.ip + ' · ' + s.clock;
+    updateDateTimeFromClock(s.clock);
+    syncWeatherCoords(s);
     for (const z of ['cuna', 'setup']) {
       if (dialDragging.has(z)) continue;
       const lv = s[z].levelFine != null ? s[z].levelFine : s[z].level;
@@ -818,7 +1031,7 @@ async function poll() {
       renderSchedules();
     }
   } catch (e) {
-    document.getElementById('meta').textContent = e.message;
+    document.getElementById('datetime').textContent = e.message;
   }
 }
 
