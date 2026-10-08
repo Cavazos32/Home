@@ -33,7 +33,7 @@
 // ---------------------------------------------------------------------------
 // Versión de ESTE firmware. Súbela (1.0.0 -> 1.0.1) antes de compilar un release;
 // el ESP32 solo se actualiza si version.json trae una versión MAYOR.
-#define FW_VERSION "1.0.2"
+#define FW_VERSION "1.0.3"
 
 #define WEATHER_LAT 26.09
 #define WEATHER_LON -98.28
