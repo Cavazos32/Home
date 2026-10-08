@@ -56,5 +56,5 @@ class ScheduleManager {
 
   Preferences prefs_;
   bool timeSynced_ = false;
-  int lastCheckedMinuteOfDay_ = -1;
+  int lastCheckedDayMinuteKey_ = -1;
 };

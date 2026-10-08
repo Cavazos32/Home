@@ -7,6 +7,10 @@ const char* PREFS_NS = "homelights";
 const char* PREFS_KEY = "schedules";
 
 int minuteOfDay(const struct tm& ti) { return ti.tm_hour * 60 + ti.tm_min; }
+
+int dayMinuteKey(const struct tm& ti) {
+  return ti.tm_yday * 1440 + minuteOfDay(ti);
+}
 }  // namespace
 
 void ScheduleManager::begin() {
@@ -81,9 +85,9 @@ void ScheduleManager::update(LightController& lights, AlternateMode& alternate) 
   if (!getLocalTime(&ti, 20)) return;
   timeSynced_ = true;
 
-  const int mod = minuteOfDay(ti);
-  if (mod == lastCheckedMinuteOfDay_) return;
-  lastCheckedMinuteOfDay_ = mod;
+  const int key = dayMinuteKey(ti);
+  if (key == lastCheckedDayMinuteKey_) return;
+  lastCheckedDayMinuteKey_ = key;
 
   for (size_t i = 0; i < count_; i++) {
     const ScheduleEntry& e = entries_[i];

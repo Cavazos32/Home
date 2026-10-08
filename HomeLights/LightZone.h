@@ -19,8 +19,12 @@ class LightZone {
   void toggleLight();
 
   uint8_t currentLevel() const;
+  uint8_t targetLevel() const;
   float brightnessPercent() const { return brightness_ * 100.0f; }
   bool isOn() const { return brightness_ > 0.002f; }
+  bool isTransitioning() const { return fadeActive_; }
+  /** "off" | "turning_on" | "on" | "turning_off" */
+  const char* phaseName() const;
 
  private:
   void applyPwmFromBrightness(float linear0to1);
