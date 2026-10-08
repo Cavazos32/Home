@@ -389,6 +389,7 @@
 <script>
 const U_START = 150;
 const U_SWEEP = 240;
+const HOLD_MS = 150;
 let schedules = [];
 let schedulesDirty = false;
 let alternateOn = false;
@@ -453,7 +454,10 @@ async function api(path, body) {
   return data;
 }
 
-function updateDialUI(zone, level) {
+const picked = { cuna: 50, setup: 50 };
+const powered = { cuna: false, setup: false };
+
+function updateDialUI(zone, level, on) {
   const fine = Math.max(0, Math.min(100, +level));
   const pct = Math.round(fine);
   const arc = document.getElementById('arc-' + zone);
@@ -465,7 +469,7 @@ function updateDialUI(zone, level) {
     arc.style.strokeDashoffset = '0';
   }
   if (pctEl) pctEl.innerHTML = pct + '<span>%</span>';
-  if (card) card.classList.toggle('is-on', fine > 0.5);
+  if (card) card.classList.toggle('is-on', on);
   if (slider) slider.value = pct;
 }
 
@@ -489,7 +493,7 @@ function startDialAnim() {
       } else {
         dialShown[z] = g;
       }
-      updateDialUI(z, dialShown[z]);
+      updateDialUI(z, dialShown[z], powered[z]);
     }
     if (moving) dialAnimId = requestAnimationFrame(tick);
     else dialAnimId = 0;
@@ -503,11 +507,21 @@ const levelGen = { cuna: 0, setup: 0 };
 const lastSendAt = { cuna: 0, setup: 0 };
 
 function syncDialFromServer(zone, level) {
-  if (dialDragging.has(zone)) return;
+  const on = +level > 0.5;
+  if (dialDragging.has(zone)) {
+    powered[zone] = on;
+    return;
+  }
   if (expectLevel[zone] != null) {
     if (Math.abs(+level - expectLevel[zone]) > 2) return;
     expectLevel[zone] = null;
   }
+  powered[zone] = on;
+  if (!on) {
+    updateDialUI(zone, picked[zone], false);
+    return;
+  }
+  picked[zone] = Math.round(+level);
   setDialGoal(zone, level, false);
 }
 
@@ -517,10 +531,11 @@ function setLevel(zone, v, instant) {
   if (instant) {
     dialShown[zone] = pct;
     dialGoal[zone] = pct;
-    updateDialUI(zone, pct);
+    updateDialUI(zone, pct, powered[zone]);
   } else {
     setDialGoal(zone, pct, false);
   }
+  if (!powered[zone]) return;
   const wait = Math.max(0, 35 - (Date.now() - lastSendAt[zone]));
   clearTimeout(sendTimers[zone]);
   sendTimers[zone] = setTimeout(() => sendLevel(zone, pct), wait);
@@ -590,9 +605,11 @@ function bindZone(zone) {
     timer = setTimeout(() => {
       if (mode !== 'pending') return;
       mode = 'hold';
-      expectLevel[zone] = null;
-      cmd(zone, dialShown[zone] > 0.5 ? 'off' : 'on');
-    }, 250);
+      const pct = Math.round(percentOnU(wrap, sx, sy));
+      picked[zone] = pct;
+      if (powered[zone]) cmd(zone, 'off');
+      else powerOn(zone, pct);
+    }, HOLD_MS);
   });
 
   card.addEventListener('pointermove', (e) => {
@@ -601,17 +618,44 @@ function bindZone(zone) {
       clearTimeout(timer);
       mode = 'drag';
     }
-    if (mode === 'drag') setLevel(zone, percentOnU(wrap, e.clientX, e.clientY), true);
+    if (mode === 'drag') {
+      const pct = Math.round(percentOnU(wrap, e.clientX, e.clientY));
+      picked[zone] = pct;
+      if (powered[zone]) setLevel(zone, pct, true);
+      else {
+        dialShown[zone] = pct;
+        dialGoal[zone] = pct;
+        updateDialUI(zone, pct, false);
+      }
+    }
   });
 
   const end = () => {
     clearTimeout(timer);
-    if (mode === 'pending') setLevel(zone, percentOnU(wrap, sx, sy), true);
+    if (mode === 'pending' && !powered[zone]) {
+      const pct = Math.round(percentOnU(wrap, sx, sy));
+      picked[zone] = pct;
+      dialShown[zone] = pct;
+      dialGoal[zone] = pct;
+      updateDialUI(zone, pct, false);
+    }
     mode = null;
     dialDragging.delete(zone);
   };
   card.addEventListener('pointerup', end);
   card.addEventListener('pointercancel', end);
+}
+
+async function powerOn(zone, pct) {
+  picked[zone] = pct;
+  powered[zone] = true;
+  expectLevel[zone] = pct;
+  dialShown[zone] = pct;
+  dialGoal[zone] = pct;
+  updateDialUI(zone, pct, true);
+  const duration = +document.getElementById('cfg-fade-on').value || 1100;
+  await api('/api/command', { zone, action: 'fade', value: pct, duration });
+  poll();
 }
 
 async function cmd(zone, action) {
