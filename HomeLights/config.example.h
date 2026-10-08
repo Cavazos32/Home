@@ -1,12 +1,15 @@
 #pragma once
 
-#define WIFI_SSID "IZZI-2416"
-#define WIFI_PASSWORD "F0AF85382416"
+// Plantilla: copia este archivo como config.h y pon tus datos reales.
+// config.h NO debería subirse a GitHub (contiene la clave del WiFi y la de OTA).
+
+#define WIFI_SSID "TU_RED_WIFI"
+#define WIFI_PASSWORD "TU_CLAVE_WIFI"
 
 #define MDNS_HOSTNAME "habitacion"
 
 // Contraseña para subir firmware por WiFi (Arduino IDE → puerto de red)
-#define OTA_PASSWORD "1234"
+#define OTA_PASSWORD "CAMBIA_ESTA_CLAVE"
 
 #define GPIO_LIGHT_CUNA 25
 #define GPIO_LIGHT_SETUP 26

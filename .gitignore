@@ -1,0 +1,6 @@
+release/
+build/
+
+# Recomendado (repo público): no versionar las claves reales.
+# Antes ejecuta: git rm --cached HomeLights/config.h
+# HomeLights/config.h

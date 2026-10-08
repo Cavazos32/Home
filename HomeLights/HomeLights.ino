@@ -9,6 +9,7 @@
 #include "AlternateMode.h"
 #include "ScheduleManager.h"
 #include "LightSettings.h"
+#include "RemoteUpdate.h"
 #include "index.h"
 
 LightController lights;
@@ -246,6 +247,26 @@ void handleCommand() {
   sendJson(200, "{\"ok\":true}");
 }
 
+void handleOtaStatus() {
+  JsonDocument doc;
+  remoteUpdate.statusJson(doc.to<JsonObject>());
+  String out;
+  serializeJson(doc, out);
+  sendJson(200, out);
+}
+
+void handleOtaCheck() {
+  if (WiFi.status() != WL_CONNECTED) {
+    sendJson(503, "{\"error\":\"sin WiFi\"}");
+    return;
+  }
+  if (!remoteUpdate.requestCheck()) {
+    sendJson(409, "{\"error\":\"ya hay una revision en curso\"}");
+    return;
+  }
+  sendJson(202, "{\"ok\":true}");
+}
+
 void connectWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -319,8 +340,16 @@ void setup() {
   server.on("/api/settings", HTTP_OPTIONS, handleApiOptions);
   server.on("/api/alternate", HTTP_POST, handleAlternate);
   server.on("/api/alternate", HTTP_OPTIONS, handleApiOptions);
+  server.on("/api/ota/status", HTTP_GET, handleOtaStatus);
+  server.on("/api/ota/status", HTTP_OPTIONS, handleApiOptions);
+  server.on("/api/ota/check", HTTP_POST, handleOtaCheck);
+  server.on("/api/ota/check", HTTP_OPTIONS, handleApiOptions);
   server.begin();
   Serial.println("Servidor HTTP :80");
+
+  // OTA por descarga: revisa al arrancar (tras OTA_BOOT_DELAY_MS) y cada
+  // OTA_CHECK_INTERVAL_MS. Si el WiFi no está listo, espera sin bloquear.
+  remoteUpdate.begin(FW_VERSION, OTA_MANIFEST_URL, OTA_CHECK_INTERVAL_MS, OTA_BOOT_DELAY_MS, OTA_RETRY_MS);
 }
 
 void loop() {
@@ -331,4 +360,8 @@ void loop() {
   alternate.update(lights);
   server.handleClient();
   ArduinoOTA.handle();
+  remoteUpdate.loop();
+  if (remoteUpdate.flashing() && alternate.isEnabled()) {
+    alternate.setEnabled(false, lights);
+  }
 }

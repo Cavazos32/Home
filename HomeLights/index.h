@@ -387,6 +387,19 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <div id="sched-list"></div>
       </div>
     </details>
+
+    <details class="glass panel" id="ota-panel">
+      <summary>Firmware</summary>
+      <div class="panel-body">
+        <label>Versión instalada</label>
+        <div id="ota-version">–</div>
+        <label>Estado</label>
+        <div id="ota-msg">–</div>
+        <div class="row">
+          <button type="button" class="primary" id="ota-btn" onclick="checkOta()">Buscar actualización</button>
+        </div>
+      </div>
+    </details>
   </div>
 
   <input type="range" class="hidden" id="cuna-slider" min="0" max="100" value="0">
@@ -814,6 +827,42 @@ async function poll() {
     document.getElementById('meta').textContent = e.message;
   }
 }
+
+function applyOtaStatus(o) {
+  if (!o) return;
+  document.getElementById('ota-version').textContent =
+    'v' + o.version + (o.latest ? ' · publicada v' + o.latest : '');
+  let msg = o.message || o.state;
+  if (o.state === 'downloading') msg += ' ' + o.progress + '%';
+  document.getElementById('ota-msg').textContent = msg;
+  document.getElementById('ota-btn').disabled = !!o.busy;
+}
+
+async function refreshOta() {
+  try {
+    applyOtaStatus(await api('/api/ota/status'));
+  } catch (e) {
+    document.getElementById('ota-msg').textContent = e.message;
+  }
+}
+
+async function checkOta() {
+  try {
+    document.getElementById('ota-btn').disabled = true;
+    await api('/api/ota/check', {});
+    document.getElementById('ota-msg').textContent = 'Buscando versión nueva…';
+  } catch (e) {
+    document.getElementById('ota-msg').textContent = e.message;
+  }
+  setTimeout(refreshOta, 1500);
+}
+
+document.getElementById('ota-panel').addEventListener('toggle', (ev) => {
+  if (ev.target.open) refreshOta();
+});
+setInterval(() => {
+  if (document.getElementById('ota-panel').open) refreshOta();
+}, 2000);
 
 layoutU();
 trackFieldEdits();
