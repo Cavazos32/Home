@@ -298,9 +298,8 @@
         <div class="dial-wrap" data-dial="cuna">
           <div class="dial-glow"></div>
           <svg class="dial-svg" viewBox="0 0 120 120">
-            <circle class="dial-track" cx="60" cy="60" r="52"></circle>
-            <circle class="dial-arc" cx="60" cy="60" r="52" id="arc-cuna"
-              stroke-dasharray="326.7" stroke-dashoffset="326.7"></circle>
+            <path class="dial-track" id="track-cuna" pathLength="100"></path>
+            <path class="dial-arc" id="arc-cuna" pathLength="100"></path>
           </svg>
           <div class="dial-center">
             <div class="dial-pct" id="cuna-pct">0<span>%</span></div>
@@ -313,9 +312,8 @@
         <div class="dial-wrap" data-dial="setup">
           <div class="dial-glow"></div>
           <svg class="dial-svg" viewBox="0 0 120 120">
-            <circle class="dial-track" cx="60" cy="60" r="52"></circle>
-            <circle class="dial-arc" cx="60" cy="60" r="52" id="arc-setup"
-              stroke-dasharray="326.7" stroke-dashoffset="326.7"></circle>
+            <path class="dial-track" id="track-setup" pathLength="100"></path>
+            <path class="dial-arc" id="arc-setup" pathLength="100"></path>
           </svg>
           <div class="dial-center">
             <div class="dial-pct" id="setup-pct">0<span>%</span></div>
@@ -389,10 +387,8 @@
   <input type="range" class="hidden" id="setup-slider" min="0" max="100" value="0">
 
 <script>
-const DIAL_C = 2 * Math.PI * 52;
-const SWEEP = 210;
-const ARC_LEN = DIAL_C * SWEEP / 360;
-const U_GAP = DIAL_C - ARC_LEN;
+const U_START = 150;
+const U_SWEEP = 240;
 let schedules = [];
 let schedulesDirty = false;
 let alternateOn = false;
@@ -465,9 +461,8 @@ function updateDialUI(zone, level) {
   const pctEl = document.getElementById(zone + '-pct');
   const slider = document.getElementById(zone + '-slider');
   if (arc) {
-    const fill = ARC_LEN * (fine / 100);
-    arc.style.strokeDasharray = fill + ' ' + DIAL_C;
-    arc.style.strokeDashoffset = String(ARC_LEN - fill);
+    arc.style.strokeDasharray = fine + ' 100';
+    arc.style.strokeDashoffset = '0';
   }
   if (pctEl) pctEl.innerHTML = pct + '<span>%</span>';
   if (card) card.classList.toggle('is-on', fine > 0.5);
@@ -545,30 +540,35 @@ async function sendLevel(zone, value) {
   }
 }
 
+function uPathD() {
+  let d = '';
+  for (let i = 0; i <= 60; i++) {
+    const a = (U_START + (i / 60) * U_SWEEP) * Math.PI / 180;
+    const x = 60 + 52 * Math.cos(a);
+    const y = 60 - 52 * Math.sin(a);
+    d += (i ? 'L' : 'M') + x.toFixed(2) + ' ' + y.toFixed(2) + ' ';
+  }
+  return d;
+}
+
 function percentOnU(el, clientX, clientY) {
   const rect = el.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
-  let fromTop = Math.atan2(clientY - cy, clientX - cx) * (180 / Math.PI);
-  fromTop = (fromTop + 90 + 360) % 360;
-  const leftTip = 360 - (360 - SWEEP) / 2;
-  let along = (leftTip - fromTop + 360) % 360;
-  if (along > SWEEP) {
-    const gap = 360 - SWEEP;
-    return along - SWEEP < gap / 2 ? 100 : 0;
+  let a = Math.atan2(-(clientY - cy), clientX - cx) * (180 / Math.PI);
+  if (a < 0) a += 360;
+  const gapEnd = (U_START + U_SWEEP) % 360;
+  if (a > gapEnd && a < U_START) {
+    return (a - gapEnd) < (U_START - a) ? 100 : 0;
   }
-  return (along / SWEEP) * 100;
+  if (a < U_START) a += 360;
+  return Math.max(0, Math.min(100, ((a - U_START) / U_SWEEP) * 100));
 }
 
 function layoutU() {
-  const startFromTop = (360 - ((SWEEP + 360) / 2) + 360) % 360;
-  const rot = startFromTop - 90;
-  document.querySelectorAll('.dial-svg').forEach((svg) => {
-    svg.style.transform = 'rotate(' + rot + 'deg)';
-  });
-  document.querySelectorAll('.dial-track').forEach((track) => {
-    track.style.strokeDasharray = ARC_LEN + ' ' + U_GAP;
-    track.style.strokeDashoffset = '0';
+  const d = uPathD();
+  document.querySelectorAll('.dial-track, .dial-arc').forEach((p) => {
+    p.setAttribute('d', d);
   });
 }
 
