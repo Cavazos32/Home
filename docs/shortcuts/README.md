@@ -2,6 +2,8 @@
 
 Integración con la app **Atajos** (Apple Shortcuts) y **Siri** usando la API HTTP que ya expone el ESP32 en la red Wi‑Fi local. No se añade firmware ni endpoints nuevos.
 
+**Resumen ejecutivo:** [RESUMEN.md](RESUMEN.md)
+
 ## Requisitos
 
 - iPhone/iPad en la **misma Wi‑Fi** que el ESP32.
