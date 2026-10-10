@@ -81,3 +81,17 @@ PWM: **5 kHz**, **10 bits**. MOSFET low-side, GND común con fuente 24 V.
 ## Zona horaria
 
 Por defecto **UTC−6** (`config.h`). Ajusta `GMT_OFFSET_SEC` si tu ubicación usa otro huso.
+
+## Atajos de iOS y Siri
+
+Control por voz y desde la app **Atajos** usando `POST /api/command` en la red local (sin cambios de firmware).
+
+Guía completa, tabla de peticiones, reserva DHCP, seguridad y configuración paso a paso:
+
+**[docs/shortcuts/README.md](docs/shortcuts/README.md)**
+
+Validar formatos JSON de los cinco atajos:
+
+```bash
+python3 tools/test_shortcut_requests.py
+```
