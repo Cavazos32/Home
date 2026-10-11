@@ -50,6 +50,54 @@ static void fillZoneJson(JsonObject obj, const LightZone& z) {
   obj["phase"] = z.phaseName();
 }
 
+enum GroupStep : uint8_t { GROUP_IDLE = 0, GROUP_CUNA = 1, GROUP_SETUP = 2 };
+static GroupStep groupStep = GROUP_IDLE;
+
+static void cancelGroupSequence() { groupStep = GROUP_IDLE; }
+
+static const char* groupStepName() {
+  if (groupStep == GROUP_CUNA) return "cuna";
+  if (groupStep == GROUP_SETUP) return "setup";
+  return "idle";
+}
+
+static void startHabitacion(bool enabled) {
+  alternate.setEnabled(false, lights);
+  if (!enabled) {
+    cancelGroupSequence();
+    lights.setLightOff(ZONE_CUNA);
+    lights.setLightOff(ZONE_SETUP);
+    return;
+  }
+
+  const uint32_t fadeMs = appSettings().get().fadeOnMs;
+  const LightZone& cuna = lights.zone(ZONE_CUNA);
+  const int current = cuna.currentLevel();
+  const bool cunaReady = !cuna.isTransitioning() &&
+                         current >= GROUP_CUNA_LEVEL - 1 &&
+                         current <= GROUP_CUNA_LEVEL + 1;
+  if (cunaReady) {
+    lights.fadeLight(ZONE_SETUP, GROUP_SETUP_LEVEL, fadeMs);
+    groupStep = GROUP_SETUP;
+  } else {
+    lights.fadeLight(ZONE_CUNA, GROUP_CUNA_LEVEL, fadeMs);
+    groupStep = GROUP_CUNA;
+  }
+}
+
+static void updateGroupSequence() {
+  if (alternate.isEnabled()) {
+    cancelGroupSequence();
+    return;
+  }
+  if (groupStep == GROUP_CUNA && !lights.zone(ZONE_CUNA).isTransitioning()) {
+    lights.fadeLight(ZONE_SETUP, GROUP_SETUP_LEVEL, appSettings().get().fadeOnMs);
+    groupStep = GROUP_SETUP;
+  } else if (groupStep == GROUP_SETUP && !lights.zone(ZONE_SETUP).isTransitioning()) {
+    groupStep = GROUP_IDLE;
+  }
+}
+
 static bool serializeDocToString(JsonDocument& doc, String& out) {
   out.clear();
   if (doc.overflowed()) return false;
@@ -71,6 +119,13 @@ void handleState() {
   doc["weatherLon"] = WEATHER_LON;
   fillZoneJson(doc["cuna"].to<JsonObject>(), lights.zone(ZONE_CUNA));
   fillZoneJson(doc["setup"].to<JsonObject>(), lights.zone(ZONE_SETUP));
+
+  JsonObject group = doc["group"].to<JsonObject>();
+  group["id"] = "habitacion";
+  group["running"] = groupStep != GROUP_IDLE;
+  group["step"] = groupStepName();
+  group["cunaLevel"] = GROUP_CUNA_LEVEL;
+  group["setupLevel"] = GROUP_SETUP_LEVEL;
 
   JsonObject alt = doc["alternate"].to<JsonObject>();
   alt["enabled"] = alternate.isEnabled();
@@ -121,6 +176,7 @@ void handleSettings() {
 
   const LightSettings& settings = appSettings().get();
   if (settings.defaultOnLevel != previousOnLevel && !alternate.isEnabled()) {
+    cancelGroupSequence();
     for (uint8_t i = 0; i < ZONE_COUNT; ++i) {
       if (activeZones[i]) {
         lights.fadeLight(static_cast<LightZoneId>(i),
@@ -199,6 +255,7 @@ void handleAlternate() {
   alternate.setPeriodMs(period);
   alternate.setLevel(level);
   if (!doc["enabled"].isNull()) {
+    if (doc["enabled"].as<bool>()) cancelGroupSequence();
     alternate.setEnabled(doc["enabled"].as<bool>(), lights);
   }
 
@@ -227,7 +284,19 @@ void handleCommand() {
 
   const char* action = doc["action"] | "level";
 
+  if (strcmp(action, "group") == 0) {
+    const char* groupId = doc["group"] | "habitacion";
+    if (strcmp(groupId, "habitacion") != 0 || doc["enabled"].isNull()) {
+      sendJson(400, "{\"error\":\"invalid group\"}");
+      return;
+    }
+    startHabitacion(doc["enabled"].as<bool>());
+    sendJson(200, "{\"ok\":true}");
+    return;
+  }
+
   if (strcmp(action, "alternate") == 0) {
+    cancelGroupSequence();
     const int period = doc["period"] | static_cast<int>(alternate.periodMs());
     const int level = doc["level"] | static_cast<int>(alternate.level());
     if (period < 200 || period > 5000 || level < 1 || level > 100) {
@@ -270,6 +339,7 @@ void handleCommand() {
   }
 
   alternate.setEnabled(false, lights);
+  cancelGroupSequence();
 
   auto applyToZone = [&](LightZoneId id) {
     if (strcmp(action, "level") == 0) {
@@ -355,6 +425,7 @@ void setupOta() {
   ArduinoOTA.setPassword(OTA_PASSWORD);
 
   ArduinoOTA.onStart([]() {
+    cancelGroupSequence();
     alternate.setEnabled(false, lights);
     Serial.println("OTA: inicio");
   });
@@ -415,14 +486,18 @@ void setup() {
 
 void loop() {
   lights.update();
-  if (!alternate.isEnabled()) {
-    schedules.update(lights, alternate);
+  if (alternate.isEnabled()) {
+    cancelGroupSequence();
+  } else if (schedules.update(lights, alternate)) {
+    cancelGroupSequence();
   }
+  updateGroupSequence();
   alternate.update(lights);
   server.handleClient();
   ArduinoOTA.handle();
   remoteUpdate.loop();
-  if (remoteUpdate.flashing() && alternate.isEnabled()) {
-    alternate.setEnabled(false, lights);
+  if (remoteUpdate.flashing()) {
+    cancelGroupSequence();
+    if (alternate.isEnabled()) alternate.setEnabled(false, lights);
   }
 }

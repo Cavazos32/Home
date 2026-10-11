@@ -80,23 +80,26 @@ void ScheduleManager::applyEntry(const ScheduleEntry& e, LightController& lights
   applyZone(e.zone == SCHED_ZONE_CUNA ? ZONE_CUNA : ZONE_SETUP);
 }
 
-void ScheduleManager::update(LightController& lights, AlternateMode& alternate) {
+bool ScheduleManager::update(LightController& lights, AlternateMode& alternate) {
   struct tm ti;
-  if (!getLocalTime(&ti, 20)) return;
+  if (!getLocalTime(&ti, 20)) return false;
   timeSynced_ = true;
 
   const int key = dayMinuteKey(ti);
-  if (key == lastCheckedDayMinuteKey_) return;
+  if (key == lastCheckedDayMinuteKey_) return false;
   lastCheckedDayMinuteKey_ = key;
 
+  bool applied = false;
   for (size_t i = 0; i < count_; i++) {
     const ScheduleEntry& e = entries_[i];
     if (!e.enabled) continue;
     if (e.hour == static_cast<uint8_t>(ti.tm_hour) &&
         e.minute == static_cast<uint8_t>(ti.tm_min)) {
       applyEntry(e, lights, alternate);
+      applied = true;
     }
   }
+  return applied;
 }
 
 void ScheduleManager::loadFromNvs() {

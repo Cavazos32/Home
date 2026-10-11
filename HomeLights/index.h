@@ -5,22 +5,51 @@
 
 const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>HOME</title>
+  <title>Home</title>
+  <script>
+    try {
+      if (localStorage.getItem('homeTheme') === 'light') {
+        document.documentElement.dataset.theme = 'light';
+      }
+    } catch (e) {}
+  </script>
   <style>
     :root {
-      --text: rgba(255, 255, 255, 0.92);
-      --muted: rgba(255, 255, 255, 0.45);
-      --glass: rgba(255, 255, 255, 0.08);
-      --glass-border: rgba(255, 255, 255, 0.14);
-      --cuna: #ffb86a;
-      --cuna-glow: rgba(255, 184, 106, 0.55);
-      --setup: #7ec8ff;
-      --setup-glow: rgba(126, 200, 255, 0.5);
-      --radius: 22px;
+      --text: #f6f1e8;
+      --muted: rgba(246, 241, 232, 0.58);
+      --bg: #141210;
+      --card: #2a2723;
+      --card-border: rgba(255, 255, 255, 0.06);
+      --cuna-on: #e4b15a;
+      --setup-on: #efe6d4;
+      --group-on: #f0c56e;
+      --on-text: #2a2114;
+      --nav: rgba(22, 20, 18, 0.92);
+      --field: rgba(0, 0, 0, 0.28);
+      --line: rgba(255, 255, 255, 0.08);
+      --accent: #e4b15a;
+      color-scheme: dark;
+    }
+
+    html[data-theme="light"] {
+      --text: #1e1a16;
+      --muted: rgba(30, 26, 22, 0.58);
+      --bg: #f3eee7;
+      --card: #fffdf9;
+      --card-border: rgba(40, 30, 16, 0.08);
+      --cuna-on: #e7b45c;
+      --setup-on: #d9e6f5;
+      --group-on: #f2d48a;
+      --on-text: #2a2114;
+      --nav: rgba(255, 252, 247, 0.94);
+      --field: #fff;
+      --line: rgba(40, 30, 16, 0.1);
+      --accent: #c8892d;
+      color-scheme: light;
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -28,465 +57,600 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     body {
       margin: 0;
       min-height: 100dvh;
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
       color: var(--text);
-      background: #0a0c12;
-      overflow-x: hidden;
-    }
-
-    .ambient {
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      background:
-        radial-gradient(ellipse 80% 50% at 20% 10%, rgba(255, 170, 90, 0.22), transparent 55%),
-        radial-gradient(ellipse 70% 45% at 85% 25%, rgba(100, 180, 255, 0.2), transparent 50%),
-        radial-gradient(ellipse 60% 40% at 50% 100%, rgba(120, 90, 255, 0.12), transparent 55%),
-        linear-gradient(165deg, #0d1018 0%, #06070b 100%);
-    }
-
-    .ambient::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      backdrop-filter: blur(60px);
-      -webkit-backdrop-filter: blur(60px);
-      pointer-events: none;
+      background: var(--bg);
     }
 
     .app {
-      position: relative;
-      z-index: 1;
-      max-width: 440px;
+      width: min(440px, 100%);
       margin: 0 auto;
       padding:
-        max(1.25rem, calc(env(safe-area-inset-top) + 0.75rem))
+        max(0.85rem, calc(env(safe-area-inset-top) + 0.35rem))
         max(1rem, env(safe-area-inset-right))
-        max(2rem, calc(env(safe-area-inset-bottom) + 1rem))
+        calc(6.2rem + env(safe-area-inset-bottom))
         max(1rem, env(safe-area-inset-left));
     }
 
-    header {
-      text-align: center;
-      margin-bottom: 1.75rem;
+    .top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.35rem;
     }
 
-    header h1 {
+    h1 {
       margin: 0;
-      font-size: 1.5rem;
-      font-weight: 600;
-      letter-spacing: 0.18em;
+      font-size: 2rem;
+      font-weight: 650;
+      letter-spacing: -0.03em;
     }
 
     .header-meta {
-      margin: 0.45rem 0 0;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      justify-content: center;
-      gap: 0.5rem 0.65rem;
+      gap: 0.45rem 0.6rem;
+      margin-top: 0.35rem;
     }
 
-    #datetime {
+    #datetime, .status {
       margin: 0;
-      font-size: 0.72rem;
       color: var(--muted);
-      line-height: 1.4;
+      font-size: 0.82rem;
+      line-height: 1.35;
     }
+
+    .status:empty { display: none; }
 
     .weather-pill {
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
-      padding: 0.28rem 0.6rem;
+      gap: 0.3rem;
+      min-height: 28px;
+      padding: 0.15rem 0.55rem;
       border-radius: 999px;
+      background: var(--card);
+      font-size: 0.78rem;
+    }
+
+    .weather-pill.is-hidden { display: none; }
+    .weather-icon svg { width: 16px; height: 16px; display: block; }
+
+    .icon-btn, .tab, .switch, .back, .choice, .chip, .text-btn, .primary {
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--card);
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+    }
+
+    .icon-btn svg, .tab svg, .tile-icon svg { width: 22px; height: 22px; display: block; }
+    .icon-btn.is-on { background: var(--accent); color: var(--on-text); }
+
+    .banner {
+      margin: 0.8rem 0 0;
+      padding: 0.7rem 0.85rem;
+      border-radius: 14px;
+      background: var(--accent);
+      color: var(--on-text);
+      font-size: 0.86rem;
+    }
+
+    .banner[hidden] { display: none; }
+
+    .section-label {
+      margin: 1.25rem 0.15rem 0.5rem;
       font-size: 0.72rem;
-      color: var(--text);
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
     }
 
-    .weather-pill.is-hidden {
-      display: none;
+    .tile {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 22px;
+      margin-bottom: 0.7rem;
+      overflow: hidden;
     }
 
-    .weather-icon {
+    .tile.cuna.is-on { background: var(--cuna-on); color: var(--on-text); border-color: transparent; }
+    .tile.setup.is-on { background: var(--setup-on); color: var(--on-text); border-color: transparent; }
+    .tile.group.is-on { background: var(--group-on); color: var(--on-text); border-color: transparent; }
+
+    .tile-row { display: flex; align-items: center; padding-right: 0.85rem; }
+
+    .tile-main {
+      flex: 1;
+      min-width: 0;
+      min-height: 78px;
       display: flex;
       align-items: center;
-      line-height: 0;
+      gap: 0.8rem;
+      padding: 0.8rem 0.35rem 0.8rem 0.9rem;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      text-align: left;
     }
 
-    .weather-icon svg {
-      width: 17px;
-      height: 17px;
+    .tile-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 255, 255, 0.08);
+      flex: 0 0 auto;
+    }
+
+    .tile.is-on .tile-icon { background: rgba(255, 255, 255, 0.28); }
+
+    .tile-copy { min-width: 0; }
+    .tile-name, .tile-sub { display: block; }
+    .tile-name { font-size: 1.05rem; font-weight: 650; }
+    .tile-sub { margin-top: 0.15rem; font-size: 0.8rem; opacity: 0.75; }
+
+    .switch {
+      width: 52px;
+      height: 32px;
+      border: 0;
+      border-radius: 999px;
+      background: #4a4642;
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    html[data-theme="light"] .switch { background: #d7d1c8; }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #fff;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.18s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    }
+
+    .switch[aria-checked="true"] { background: rgba(255, 255, 255, 0.92); }
+    .switch[aria-checked="true"]::after { transform: translateX(20px); }
+
+    .tile-extra { padding: 0 1rem 0.95rem; }
+    .tile-extra[hidden] { display: none; }
+    .tile-extra .field-label { margin: 0 0 0.35rem; }
+    .hint { margin: 0; font-size: 0.82rem; opacity: 0.8; }
+
+    input[type="range"] { width: 100%; height: 32px; accent-color: currentColor; }
+
+    .menu-row, .back {
+      width: 100%;
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.85rem 1rem;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      font-size: 1rem;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 22px;
+      overflow: hidden;
+      margin-bottom: 0.85rem;
+    }
+
+    .panel h2, .subhead {
+      margin: 0;
+      padding: 1rem 1rem 0.2rem;
+      font-size: 1.15rem;
+    }
+
+    .help {
+      margin: 0.25rem 1rem 0.8rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.4;
+    }
+
+    label.field-label {
       display: block;
+      margin: 0.7rem 1rem 0.3rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
-
-    .weather-temp {
-      font-variant-numeric: tabular-nums;
-    }
-
-    .glass {
-      background: var(--glass);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius);
-      backdrop-filter: blur(20px) saturate(1.35);
-      -webkit-backdrop-filter: blur(20px) saturate(1.35);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-    }
-
-    #file-mode {
-      display: none;
-      padding: 1rem;
-      margin-bottom: 1rem;
-    }
-
-    #file-mode p { margin: 0 0 0.75rem; font-size: 0.8rem; color: var(--muted); }
 
     .field {
-      width: 100%;
+      width: calc(100% - 2rem);
       min-height: 44px;
-      padding: 0.65rem 0.85rem;
+      margin: 0 1rem 0.35rem;
+      padding: 0.65rem 0.8rem;
       border-radius: 12px;
-      border: 1px solid var(--glass-border);
-      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--line);
+      background: var(--field);
       color: var(--text);
-      font-size: 0.9rem;
-      margin-bottom: 0.65rem;
+      font: inherit;
+      font-size: 1rem;
     }
 
-    .dials {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-      margin-bottom: 1rem;
+    .choices, .chips, .row { display: flex; gap: 0.5rem; }
+    .choices, .chips { padding: 0.35rem 1rem 1rem; }
+    .row { padding: 0.4rem 1rem 1rem; }
+
+    .choice, .chip, .text-btn, .primary {
+      min-height: 44px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: transparent;
     }
 
-    @media (max-width: 360px) {
-      .dials { grid-template-columns: 1fr; }
+    .choice, .chip { flex: 1; padding: 0.55rem 0.4rem; }
+    .choice[aria-pressed="true"], .chip[aria-pressed="true"], .primary {
+      background: var(--text);
+      color: var(--bg);
+      border-color: transparent;
+      font-weight: 700;
     }
 
-    .zone-card {
-      padding: 1.1rem 0.75rem 1.15rem;
-      text-align: center;
-      position: relative;
-      cursor: pointer;
-      transition: box-shadow 0.35s ease, opacity 0.25s ease;
-      opacity: 0.55;
-      user-select: none;
-      -webkit-user-select: none;
+    .text-btn, .primary { flex: 1; padding: 0.7rem 0.8rem; }
+    .text-btn.danger { color: #ffb4a8; }
+
+    .routine {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.9rem 1rem;
+      border-top: 1px solid var(--line);
     }
 
-    .zone-card.is-on { opacity: 1; }
-    .zone-card.is-on.cuna { box-shadow: 0 0 48px var(--cuna-glow); }
-    .zone-card.is-on.setup { box-shadow: 0 0 48px var(--setup-glow); }
-
-    .zone-name {
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
+    .routine-time { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.03em; }
+    .routine-detail { color: var(--muted); font-size: 0.82rem; margin-top: 0.15rem; }
+    .routine button {
+      margin-left: auto;
+      min-width: 44px;
+      min-height: 44px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
       color: var(--muted);
-      margin-bottom: 0.35rem;
+      font: inherit;
+      font-size: 1.3rem;
     }
 
-    .dial-wrap {
-      position: relative;
-      width: min(100%, 168px);
+    .empty { margin: 0; padding: 1rem; color: var(--muted); }
+
+    .dirty-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.8rem;
+      padding: 0.7rem 0.8rem;
+      border-radius: 16px;
+      background: var(--accent);
+      color: var(--on-text);
+    }
+
+    .dirty-bar[hidden] { display: none; }
+    .dirty-bar button {
+      min-height: 40px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--on-text);
+      color: var(--accent);
+      font: inherit;
+      font-weight: 700;
+      padding: 0.4rem 0.75rem;
+    }
+
+    .tabbar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 5;
+      padding: 0.35rem 1rem calc(0.35rem + env(safe-area-inset-bottom));
+      background: var(--nav);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--line);
+    }
+
+    .tabbar-inner {
+      width: min(440px, 100%);
       margin: 0 auto;
-      aspect-ratio: 1;
-      touch-action: none;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
     }
 
-    .dial-wrap.dial-locked { cursor: pointer; }
-    .dial-wrap.dial-enabled { cursor: grab; }
-    .dial-wrap.dial-enabled:active { cursor: grabbing; }
-
-    .dial-glow {
-      position: absolute;
-      inset: 12%;
-      border-radius: 50%;
-      filter: blur(28px);
-      opacity: 0;
-      transition: opacity 0.4s ease;
-      pointer-events: none;
-    }
-
-    .zone-card.is-on .dial-glow { opacity: 0.85; }
-    .zone-card.cuna .dial-glow { background: var(--cuna); }
-    .zone-card.setup .dial-glow { background: var(--setup); }
-
-    .dial-svg {
-      width: 100%;
-      height: 100%;
-    }
-
-    .dial-track {
-      fill: none;
-      stroke: rgba(255, 255, 255, 0.12);
-      stroke-width: 6;
-      stroke-linecap: round;
-    }
-
-    .dial-arc {
-      fill: none;
-      stroke-width: 6;
-      stroke-linecap: round;
-      transition: none;
-    }
-
-    .zone-card.cuna .dial-arc { stroke: var(--cuna); filter: drop-shadow(0 0 6px var(--cuna-glow)); }
-    .zone-card.setup .dial-arc { stroke: var(--setup); filter: drop-shadow(0 0 6px var(--setup-glow)); }
-
-    .dial-center {
-      position: absolute;
-      inset: 22%;
-      border-radius: 50%;
+    .tab {
+      min-height: 52px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(8px);
+      gap: 0.15rem;
+      font-size: 0.68rem;
+      font-weight: 650;
     }
 
-    .dial-pct {
-      font-size: 1.65rem;
-      font-weight: 300;
-      font-variant-numeric: tabular-nums;
-      line-height: 1;
+    .tab[aria-current="page"] { color: var(--text); }
+
+    button:focus-visible, .field:focus-visible, input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
 
-    .dial-pct span { font-size: 0.85rem; opacity: 0.55; }
-
-    details.panel {
-      margin-bottom: 0.75rem;
-    }
-
-    details.panel summary {
-      list-style: none;
-      padding: 0.9rem 1rem;
-      cursor: pointer;
-      font-size: 0.85rem;
-      color: var(--muted);
-      user-select: none;
-    }
-
-    details.panel summary::-webkit-details-marker { display: none; }
-
-    details.panel[open] summary { color: var(--text); }
-
-    .panel-body {
-      padding: 0 1rem 1rem;
-      font-size: 0.82rem;
-    }
-
-    .panel-body label {
-      display: block;
-      font-size: 0.7rem;
-      color: var(--muted);
-      margin: 0.5rem 0 0.25rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    select.field { appearance: none; }
-
-    .row { display: flex; gap: 0.5rem; margin-top: 0.65rem; }
-
-    .row button {
-      flex: 1;
-      padding: 0.6rem;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text);
-      font-size: 0.78rem;
-      cursor: pointer;
-    }
-
-    .row button.primary { background: rgba(255, 255, 255, 0.88); color: #111; font-weight: 600; }
-
-    .sched-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-      padding: 0.55rem 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      font-size: 0.75rem;
-      color: var(--muted);
-    }
-
-    .sched-item button {
-      flex-shrink: 0;
-      padding: 0.25rem 0.5rem;
-      font-size: 0.65rem;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      background: transparent;
-      color: var(--muted);
-      cursor: pointer;
-    }
-
-    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-
-    .hidden { position: absolute; opacity: 0; pointer-events: none; height: 0; width: 0; }
+    .view[hidden], .settings-page[hidden] { display: none; }
   </style>
 </head>
 <body>
-  <div class="ambient" aria-hidden="true"></div>
   <div class="app">
-    <header>
-      <h1>HOME</h1>
-      <div class="header-meta">
-        <p id="datetime">Conectando…</p>
-        <div class="weather-pill glass is-hidden" id="weather-pill" aria-hidden="true">
-          <span class="weather-icon" id="weather-icon"></span>
-          <span class="weather-temp" id="weather-temp"></span>
+    <header class="top">
+      <div>
+        <h1>Home</h1>
+        <div class="header-meta">
+          <p id="datetime">Conectando…</p>
+          <div class="weather-pill is-hidden" id="weather-pill" aria-hidden="true">
+            <span class="weather-icon" id="weather-icon"></span>
+            <span class="weather-temp" id="weather-temp"></span>
+          </div>
         </div>
       </div>
+      <button class="icon-btn" id="alt-toggle" type="button" aria-pressed="false" aria-label="Activar modo alternado">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h11l-2.5-2.5M17 17H6l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </header>
+    <p id="status" class="status" role="status"></p>
+    <p id="alt-banner" class="banner" hidden>Modo alternado activo: Cunero y Setup se encienden por turnos.</p>
 
-    <div class="glass" id="file-mode">
-      <input class="field" type="url" id="esp-base" placeholder="http://192.168.0.24">
-      <button type="button" class="row primary" style="width:100%;border:none;padding:0.65rem;border-radius:12px;" onclick="saveEspBase()">Conectar</button>
-    </div>
-
-    <div class="dials">
-      <article class="glass zone-card cuna" id="card-cuna">
-        <div class="zone-name">Cuna</div>
-        <div class="dial-wrap" data-dial="cuna">
-          <div class="dial-glow"></div>
-          <svg class="dial-svg" viewBox="0 0 120 120">
-            <path class="dial-track" id="track-cuna" pathLength="100"></path>
-            <path class="dial-arc" id="arc-cuna" pathLength="100"></path>
-          </svg>
-          <div class="dial-center">
-            <div class="dial-pct" id="cuna-pct">0<span>%</span></div>
-          </div>
+    <section class="view" id="view-home">
+      <h2 class="section-label">Zonas</h2>
+      <article class="tile cuna" id="tile-cuna">
+        <div class="tile-row">
+          <button class="tile-main" id="open-cuna" type="button" aria-expanded="false" aria-controls="extra-cuna">
+            <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 10V7.5A1.5 1.5 0 0 1 6.5 6H8M19 10V7.5A1.5 1.5 0 0 0 17.5 6H16M4 10h16M7 10v7M17 10v7M4 17h16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+            <span class="tile-copy"><span class="tile-name">Cunero</span><span class="tile-sub" id="cuna-sub">Apagado</span></span>
+          </button>
+          <button class="switch" id="switch-cuna" type="button" role="switch" aria-checked="false" aria-label="Cunero"></button>
+        </div>
+        <div class="tile-extra" id="extra-cuna" hidden>
+          <p class="hint" id="hint-cuna">Enciende la zona para ajustar el brillo.</p>
+          <label class="field-label" for="level-cuna">Brillo</label>
+          <input id="level-cuna" type="range" min="1" max="100" value="50" aria-valuemin="1" aria-valuemax="100" hidden>
+        </div>
+      </article>
+      <article class="tile setup" id="tile-setup">
+        <div class="tile-row">
+          <button class="tile-main" id="open-setup" type="button" aria-expanded="false" aria-controls="extra-setup">
+            <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 14h16M6 14V8h12v6M8 18v-4M16 18v-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="tile-copy"><span class="tile-name">Setup</span><span class="tile-sub" id="setup-sub">Apagado</span></span>
+          </button>
+          <button class="switch" id="switch-setup" type="button" role="switch" aria-checked="false" aria-label="Setup"></button>
+        </div>
+        <div class="tile-extra" id="extra-setup" hidden>
+          <p class="hint" id="hint-setup">Enciende la zona para ajustar el brillo.</p>
+          <label class="field-label" for="level-setup">Brillo</label>
+          <input id="level-setup" type="range" min="1" max="100" value="50" aria-valuemin="1" aria-valuemax="100" hidden>
         </div>
       </article>
 
-      <article class="glass zone-card setup" id="card-setup">
-        <div class="zone-name">Setup</div>
-        <div class="dial-wrap" data-dial="setup">
-          <div class="dial-glow"></div>
-          <svg class="dial-svg" viewBox="0 0 120 120">
-            <path class="dial-track" id="track-setup" pathLength="100"></path>
-            <path class="dial-arc" id="arc-setup" pathLength="100"></path>
-          </svg>
-          <div class="dial-center">
-            <div class="dial-pct" id="setup-pct">0<span>%</span></div>
+      <h2 class="section-label">Grupos</h2>
+      <article class="tile group" id="tile-group">
+        <div class="tile-row">
+          <div class="tile-main" style="cursor:default">
+            <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 16l8 4 8-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
+            <span class="tile-copy"><span class="tile-name">Habitación</span><span class="tile-sub" id="group-sub">Primero Cunero al 35%, luego Setup al 100%</span></span>
           </div>
+          <button class="switch" id="switch-group" type="button" role="switch" aria-checked="false" aria-label="Grupo Habitación"></button>
         </div>
       </article>
-    </div>
+    </section>
 
-    <details class="glass panel">
-      <summary>Ajustes</summary>
-      <div class="panel-body">
-        <label>Fade on (ms)</label>
-        <input class="field" type="number" id="cfg-fade-on" min="200" max="15000" step="50" value="1100">
-        <label>Fade off (ms)</label>
-        <input class="field" type="number" id="cfg-fade-off" min="200" max="15000" step="50" value="1400">
-        <label>Gamma</label>
-        <input class="field" type="number" id="cfg-gamma" min="1" max="4" step="0.1" value="2.2">
-        <label>Nivel on (%)</label>
-        <input class="field" type="number" id="cfg-default-on" min="1" max="100" value="50">
-        <div class="row">
-          <button type="button" class="primary" onclick="saveSettings()">Guardar</button>
+    <section class="view" id="view-routines" hidden>
+      <h2 class="section-label">Rutinas</h2>
+      <div class="dirty-bar" id="routine-dirty" hidden>
+        <span>Cambios sin guardar</span>
+        <button type="button" id="save-routines">Guardar</button>
+      </div>
+      <div class="panel">
+        <h2>Nueva rutina</h2>
+        <p class="help">Elige cuándo y qué debe ocurrir. Encender usa el nivel configurado en Ajustes. El grupo Habitación, en Inicio, hace su propia secuencia.</p>
+        <label class="field-label" for="sch-time">Hora</label>
+        <input class="field" id="sch-time" type="time" value="22:00" required>
+        <p class="field-label">Dónde</p>
+        <div class="chips" id="zone-chips" role="radiogroup" aria-label="Dónde">
+          <button class="chip" type="button" data-value="cuna" aria-pressed="true">Cunero</button>
+          <button class="chip" type="button" data-value="setup" aria-pressed="false">Setup</button>
+          <button class="chip" type="button" data-value="both" aria-pressed="false">Ambas</button>
+        </div>
+        <p class="field-label">Qué hacer</p>
+        <div class="chips" id="action-chips" role="radiogroup" aria-label="Qué hacer">
+          <button class="chip" type="button" data-value="off" aria-pressed="true">Apagar</button>
+          <button class="chip" type="button" data-value="on" aria-pressed="false">Encender</button>
+          <button class="chip" type="button" data-value="level" aria-pressed="false">Nivel</button>
+        </div>
+        <div id="level-box">
+          <label class="field-label" for="sch-level">Nivel</label>
+          <input class="field" id="sch-level" type="number" min="0" max="100" value="30">
+        </div>
+        <div class="row"><button class="primary" id="add-routine" type="button">Agregar</button></div>
+      </div>
+      <div class="panel" id="routine-list"></div>
+    </section>
+
+    <section class="view" id="view-settings" hidden>
+      <div class="settings-page" id="settings-root">
+        <h2 class="section-label">Ajustes</h2>
+        <div class="panel">
+          <h2>Apariencia</h2>
+          <p class="help">Elige el modo que se vea mejor en la habitación.</p>
+          <div class="choices" role="radiogroup" aria-label="Apariencia">
+            <button class="choice" id="theme-dark" type="button" aria-pressed="true">Oscuro</button>
+            <button class="choice" id="theme-light" type="button" aria-pressed="false">Claro</button>
+          </div>
+        </div>
+        <div class="panel">
+          <button class="menu-row" type="button" data-page="settings-light">Encendido <span aria-hidden="true">›</span></button>
+          <button class="menu-row" type="button" data-page="settings-alternate">Modo alternado <span aria-hidden="true">›</span></button>
+          <button class="menu-row" type="button" data-page="settings-firmware">Firmware <span aria-hidden="true">›</span></button>
+          <button class="menu-row" id="open-link" type="button" data-page="settings-link" hidden>Conexión <span aria-hidden="true">›</span></button>
         </div>
       </div>
-    </details>
 
-    <details class="glass panel">
-      <summary>Modo alternado</summary>
-      <div class="panel-body">
-        <label>Intensidad %</label>
-        <input class="field" type="number" min="1" max="100" id="alt-level" value="80">
-        <label>Periodo (ms)</label>
-        <input class="field" type="number" min="200" max="5000" step="100" id="alt-period" value="700">
-        <div class="row">
-          <button type="button" onclick="saveAlternate()">Guardar</button>
-          <button type="button" class="primary" id="alt-btn" onclick="toggleAlternate()">Activar</button>
+      <div class="settings-page" id="settings-light" hidden>
+        <div class="panel">
+          <button class="back" type="button">‹ Ajustes</button>
+          <h2 class="subhead">Encendido</h2>
+          <p class="help">Estos valores cambian la suavidad de todas las zonas y del grupo.</p>
+          <label class="field-label" for="cfg-fade-on">Encendido suave (ms)</label>
+          <input class="field" id="cfg-fade-on" type="number" min="200" max="15000" step="50" value="1100">
+          <label class="field-label" for="cfg-fade-off">Apagado suave (ms)</label>
+          <input class="field" id="cfg-fade-off" type="number" min="200" max="15000" step="50" value="1400">
+          <label class="field-label" for="cfg-gamma">Curva de brillo</label>
+          <input class="field" id="cfg-gamma" type="number" min="1" max="4" step="0.1" value="2.2">
+          <label class="field-label" for="cfg-default-on">Nivel al encender (%)</label>
+          <input class="field" id="cfg-default-on" type="number" min="1" max="100" value="50">
+          <div class="row"><button class="primary" id="save-settings" type="button">Guardar</button></div>
         </div>
       </div>
-    </details>
 
-    <details class="glass panel">
-      <summary>Horarios</summary>
-      <div class="panel-body">
-        <div class="grid2">
-          <div><label>Hora</label><input class="field" type="number" id="sch-h" min="0" max="23" value="22"></div>
-          <div><label>Min</label><input class="field" type="number" id="sch-m" min="0" max="59" value="0"></div>
-        </div>
-        <label>Zona</label>
-        <select class="field" id="sch-zone">
-          <option value="both">Ambas</option>
-          <option value="cuna">Cuna</option>
-          <option value="setup">Setup</option>
-        </select>
-        <label>Acción</label>
-        <select class="field" id="sch-action">
-          <option value="off">Apagar</option>
-          <option value="on">Encender</option>
-          <option value="level">Nivel</option>
-        </select>
-        <label>Nivel</label>
-        <input class="field" type="number" id="sch-level" min="0" max="100" value="30">
-        <div class="row">
-          <button type="button" onclick="addSchedule()">Agregar</button>
-          <button type="button" class="primary" onclick="saveSchedules()">Guardar</button>
-        </div>
-        <div id="sched-list"></div>
-      </div>
-    </details>
-
-    <details class="glass panel" id="ota-panel">
-      <summary>Firmware</summary>
-      <div class="panel-body">
-        <label>Versión instalada</label>
-        <div id="ota-version">–</div>
-        <label>Estado</label>
-        <div id="ota-msg">–</div>
-        <div class="row">
-          <button type="button" class="primary" id="ota-btn" onclick="checkOta()">Buscar actualización</button>
+      <div class="settings-page" id="settings-alternate" hidden>
+        <div class="panel">
+          <button class="back" type="button">‹ Ajustes</button>
+          <h2 class="subhead">Modo alternado</h2>
+          <p class="help">También puedes activarlo con el icono de la pantalla principal.</p>
+          <div class="menu-row"><span>Activado</span><button class="switch" id="alt-switch" type="button" role="switch" aria-checked="false" aria-label="Modo alternado"></button></div>
+          <label class="field-label" for="alt-level">Intensidad (%)</label>
+          <input class="field" id="alt-level" type="number" min="1" max="100" value="80">
+          <label class="field-label" for="alt-period">Tiempo de cada turno (ms)</label>
+          <input class="field" id="alt-period" type="number" min="200" max="5000" step="100" value="700">
+          <div class="row"><button class="primary" id="save-alternate" type="button">Guardar</button></div>
         </div>
       </div>
-    </details>
+
+      <div class="settings-page" id="settings-firmware" hidden>
+        <div class="panel">
+          <button class="back" type="button">‹ Ajustes</button>
+          <h2 class="subhead">Firmware</h2>
+          <p class="field-label">Versión instalada</p>
+          <p class="help" id="ota-version">–</p>
+          <p class="field-label">Estado</p>
+          <p class="help" id="ota-msg">–</p>
+          <div class="row"><button class="primary" id="ota-btn" type="button">Buscar actualización</button></div>
+        </div>
+      </div>
+
+      <div class="settings-page" id="settings-link" hidden>
+        <div class="panel">
+          <button class="back" type="button">‹ Ajustes</button>
+          <h2 class="subhead">Conexión</h2>
+          <label class="field-label" for="esp-base">Dirección del controlador</label>
+          <input class="field" id="esp-base" type="url" placeholder="http://192.168.0.24" required>
+          <div class="row"><button class="primary" id="save-link" type="button">Conectar</button></div>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <input type="range" class="hidden" id="cuna-slider" min="0" max="100" value="0">
-  <input type="range" class="hidden" id="setup-slider" min="0" max="100" value="0">
+  <nav class="tabbar" aria-label="Secciones">
+    <div class="tabbar-inner">
+      <button class="tab" type="button" data-view="home" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-8.5z" fill="currentColor"/></svg>Inicio</button>
+      <button class="tab" type="button" data-view="routines" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Rutinas</button>
+      <button class="tab" type="button" data-view="settings" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Ajustes</button>
+    </div>
+  </nav>
 
 <script>
-const U_START = 150;
-const U_SWEEP = 240;
-const HOLD_MS = 150;
 const POLL_MS = 350;
+const ZONE_LABEL = { cuna: 'Cunero', setup: 'Setup', both: 'Ambas' };
+const ACTION_LABEL = { off: 'Apagar', on: 'Encender', level: 'Poner al' };
 let schedules = [];
 let schedulesDirty = false;
 let alternateOn = false;
+let expanded = null;
+let groupRunning = false;
+let groupStep = 'idle';
+const groupLevels = { cuna: 35, setup: 100 };
+const phase = { cuna: 'off', setup: 'off' };
+const levelShown = { cuna: 0, setup: 0 };
+const expectLevel = { cuna: null, setup: null };
+const pending = { cuna: null, setup: null, group: null };
+const dragging = new Set();
+const dirtyFields = new Set();
 const editingFields = new Set();
-const dialDragging = new Set();
 let settingsQuietUntil = 0;
 let settingsSaveToken = 0;
-let pollRunning = false;
-let pollQueued = false;
 let schedulesQuietUntil = 0;
 let alternateQuietUntil = 0;
-const dialShown = { cuna: 0, setup: 0 };
-const dialGoal = { cuna: 0, setup: 0 };
-const dialAnimId = { cuna: 0, setup: 0 };
-const dirtyFields = new Set();
+let pollRunning = false;
+let pollQueued = false;
+const sendTimers = {};
+const routineChoice = { zone: 'cuna', action: 'off' };
+
+function setStatus(message) {
+  document.getElementById('status').textContent = message || '';
+}
+
+function setTheme(theme) {
+  const next = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('homeTheme', next);
+  document.getElementById('theme-dark').setAttribute('aria-pressed', String(next === 'dark'));
+  document.getElementById('theme-light').setAttribute('aria-pressed', String(next === 'light'));
+}
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach((view) => {
+    view.hidden = view.id !== 'view-' + name;
+  });
+  document.querySelectorAll('.tab').forEach((tab) => {
+    tab.setAttribute('aria-current', tab.dataset.view === name ? 'page' : 'false');
+  });
+  if (name === 'settings') showSettingsPage('settings-root');
+}
+
+function showSettingsPage(id) {
+  document.querySelectorAll('.settings-page').forEach((page) => {
+    page.hidden = page.id !== id;
+  });
+  if (id === 'settings-firmware') refreshOta();
+}
 
 function trackFieldEdits() {
   document.querySelectorAll('.field').forEach((el) => {
     if (!el.id) return;
-    const markEditing = () => editingFields.add(el.id);
-    const markDirty = () => dirtyFields.add(el.id);
-    el.addEventListener('focus', markEditing);
-    el.addEventListener('input', markDirty);
-    el.addEventListener('change', markDirty);
+    el.addEventListener('focus', () => editingFields.add(el.id));
+    el.addEventListener('input', () => dirtyFields.add(el.id));
+    el.addEventListener('change', () => dirtyFields.add(el.id));
     el.addEventListener('blur', () => {
       setTimeout(() => {
         if (document.activeElement !== el) editingFields.delete(el.id);
@@ -495,326 +659,291 @@ function trackFieldEdits() {
   });
 }
 
-function setFieldValue(id, value, force = false) {
+function setFieldValue(id, value, force) {
   if (!force && (editingFields.has(id) || dirtyFields.has(id))) return;
   const el = document.getElementById(id);
   if (el && String(el.value) !== String(value)) el.value = value;
 }
 
-function isFileMode() {
-  return location.protocol === 'file:';
+function validateFields(ids) {
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el && !el.reportValidity()) return false;
+  }
+  return true;
 }
+
+function isFileMode() { return location.protocol === 'file:'; }
 
 function apiBase() {
   if (!isFileMode()) return '';
   const el = document.getElementById('esp-base');
-  const v = (el && el.value) || localStorage.getItem('espApiBase') || '';
-  return v.replace(/\/$/, '');
+  return ((el && el.value) || localStorage.getItem('espApiBase') || '').replace(/\/$/, '');
 }
 
-function saveEspBase() {
-  const v = document.getElementById('esp-base').value.trim().replace(/\/$/, '');
-  localStorage.setItem('espApiBase', v);
-  poll();
-}
-
-async function api(path, body, fetchOpts) {
+async function api(path, body) {
   const base = apiBase();
-  if (isFileMode() && !base) throw new Error('Sin URL');
+  if (isFileMode() && !base) throw new Error('Falta la dirección del controlador');
   const r = await fetch(base + path, {
     method: body ? 'POST' : 'GET',
-    headers: body ? {'Content-Type':'application/json'} : {},
-    body: body ? JSON.stringify(body) : undefined,
-    signal: fetchOpts && fetchOpts.signal
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined
   });
   const text = await r.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch (_) {
-    throw new Error('Respuesta no JSON: ' + text.slice(0, 80));
-  }
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; }
+  catch (e) { throw new Error('Respuesta no válida'); }
   if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
   return data;
 }
 
-const picked = { cuna: 50, setup: 50 };
-const zonePhase = { cuna: 'off', setup: 'off' };
-
-function dialEditable(zone) {
-  return zonePhase[zone] === 'on';
-}
-
-function updateZoneChrome(zone) {
-  const card = document.getElementById('card-' + zone);
-  const wrap = card && card.querySelector('.dial-wrap');
-  const on = zonePhase[zone] !== 'off';
-  if (card) card.classList.toggle('is-on', on);
-  if (wrap) {
-    wrap.classList.toggle('dial-enabled', dialEditable(zone));
-    wrap.classList.toggle('dial-locked', !dialEditable(zone));
-  }
-}
-
 function phaseFromServer(z) {
+  if (!z) return 'off';
   if (z.phase) return z.phase;
   if (z.transitioning) return (+z.targetLevel <= 0 ? 'turning_off' : 'turning_on');
   return (z.on || +z.level > 0.5) ? 'on' : 'off';
 }
 
-function updateDialUI(zone, level) {
-  const fine = Math.max(0, Math.min(100, +level));
-  const pct = Math.round(fine);
-  const arc = document.getElementById('arc-' + zone);
-  const pctEl = document.getElementById(zone + '-pct');
-  const slider = document.getElementById(zone + '-slider');
-  if (arc) {
-    arc.style.strokeDasharray = fine + ' 100';
-    arc.style.strokeDashoffset = '0';
-    arc.style.visibility = fine <= 0.05 ? 'hidden' : 'visible';
-  }
-  if (pctEl) pctEl.innerHTML = pct + '<span>%</span>';
-  if (slider) slider.value = pct;
+function zoneText(zone) {
+  const pct = Math.round(levelShown[zone]);
+  if (phase[zone] === 'turning_on') return 'Encendiendo · ' + pct + '%';
+  if (phase[zone] === 'turning_off') return 'Apagando · ' + pct + '%';
+  if (phase[zone] === 'off') return 'Apagado';
+  return pct + '%';
 }
 
-function setDialGoal(zone, level, instant) {
-  dialGoal[zone] = Math.max(0, Math.min(100, +level));
-  if (instant) dialShown[zone] = dialGoal[zone];
-  startDialAnim(zone);
-}
-
-function startDialAnim(zone) {
-  if (dialAnimId[zone]) return;
-  const tick = () => {
-    if (dialDragging.has(zone)) {
-      dialAnimId[zone] = 0;
-      return;
+function paint() {
+  ['cuna', 'setup'].forEach((zone) => {
+    const on = phase[zone] !== 'off';
+    document.getElementById('tile-' + zone).classList.toggle('is-on', on);
+    document.getElementById(zone + '-sub').textContent = zoneText(zone);
+    document.getElementById('switch-' + zone).setAttribute('aria-checked', String(on));
+    const open = expanded === zone;
+    document.getElementById('extra-' + zone).hidden = !open;
+    document.getElementById('open-' + zone).setAttribute('aria-expanded', String(open));
+    const slider = document.getElementById('level-' + zone);
+    const hint = document.getElementById('hint-' + zone);
+    slider.hidden = !on;
+    slider.previousElementSibling.hidden = !on;
+    hint.hidden = on;
+    if (on && !dragging.has(zone)) {
+      const pct = Math.max(1, Math.min(100, Math.round(levelShown[zone]) || 1));
+      slider.value = String(pct);
+      slider.setAttribute('aria-valuenow', String(pct));
     }
-    const d = dialShown[zone];
-    const g = dialGoal[zone];
-    const moving = Math.abs(d - g) > 0.25;
-    dialShown[zone] = moving ? d + (g - d) * 0.28 : g;
-    updateDialUI(zone, dialShown[zone]);
-    if (moving) dialAnimId[zone] = requestAnimationFrame(tick);
-    else dialAnimId[zone] = 0;
-  };
-  dialAnimId[zone] = requestAnimationFrame(tick);
+  });
+
+  const anyOn = phase.cuna !== 'off' || phase.setup !== 'off';
+  const bothOn = phase.cuna !== 'off' && phase.setup !== 'off';
+  const groupOn = groupRunning || bothOn || pending.group === 'on';
+  document.getElementById('tile-group').classList.toggle('is-on', groupOn);
+  document.getElementById('switch-group').setAttribute('aria-checked', String(groupOn));
+  let detail = 'Primero Cunero al ' + groupLevels.cuna + '%, luego Setup al ' + groupLevels.setup + '%';
+  if (groupStep === 'cuna' || (pending.group === 'on' && !bothOn)) detail = 'Encendiendo Cunero…';
+  else if (groupStep === 'setup') detail = 'Encendiendo Setup…';
+  else if (!groupOn && anyOn) detail = 'Solo una zona está encendida';
+  document.getElementById('group-sub').textContent = detail;
+
+  document.getElementById('alt-toggle').setAttribute('aria-pressed', String(alternateOn));
+  document.getElementById('alt-toggle').classList.toggle('is-on', alternateOn);
+  document.getElementById('alt-toggle').setAttribute('aria-label', alternateOn ? 'Detener modo alternado' : 'Activar modo alternado');
+  document.getElementById('alt-switch').setAttribute('aria-checked', String(alternateOn));
+  document.getElementById('alt-banner').hidden = !alternateOn;
 }
 
-let sendTimers = {};
-const expectLevel = { cuna: null, setup: null };
-const levelGen = { cuna: 0, setup: 0 };
-const lastSendAt = { cuna: 0, setup: 0 };
-
-function syncDialFromServer(zone, z) {
-  zonePhase[zone] = phaseFromServer(z);
-  updateZoneChrome(zone);
-
-  if (dialDragging.has(zone)) return;
-
-  const level = z.levelFine != null ? z.levelFine : z.level;
-  const phase = zonePhase[zone];
-
+function acceptZone(zone, server) {
+  const nextPhase = phaseFromServer(server);
+  const serverLevel = server.levelFine != null ? +server.levelFine : +server.level;
+  if (pending[zone] === 'on' && nextPhase === 'off') return;
+  if (pending[zone] === 'off' && nextPhase !== 'off' && nextPhase !== 'turning_off') return;
+  if (pending[zone] === 'on' && nextPhase !== 'off') pending[zone] = null;
+  if (pending[zone] === 'off' && nextPhase === 'off') pending[zone] = null;
+  phase[zone] = nextPhase;
+  if (dragging.has(zone)) return;
   if (expectLevel[zone] != null) {
-    if (phase !== 'on') {
-      expectLevel[zone] = null;
-    } else if (Math.abs(+level - expectLevel[zone]) > 2) {
+    if (Math.abs(serverLevel - expectLevel[zone]) <= 2 || nextPhase === 'off') expectLevel[zone] = null;
+    else {
+      levelShown[zone] = expectLevel[zone];
       return;
-    } else {
-      expectLevel[zone] = null;
     }
   }
+  levelShown[zone] = nextPhase === 'off' ? 0 : serverLevel;
+}
 
-  if (phase === 'off') {
-    dialShown[zone] = 0;
-    dialGoal[zone] = 0;
-    updateDialUI(zone, 0);
+function applyGroup(s) {
+  const g = s.group || {};
+  if (Number.isFinite(+g.cunaLevel)) groupLevels.cuna = Math.round(+g.cunaLevel);
+  if (Number.isFinite(+g.setupLevel)) groupLevels.setup = Math.round(+g.setupLevel);
+  const running = !!g.running;
+  const bothOn = phase.cuna !== 'off' && phase.setup !== 'off';
+  const bothOff = phase.cuna === 'off' && phase.setup === 'off';
+  if (pending.group === 'on' && !running && !bothOn) {
+    groupRunning = true;
+    groupStep = 'cuna';
     return;
   }
-
-  if (phase === 'on') picked[zone] = Math.round(+level);
-  setDialGoal(zone, level, false);
+  if (pending.group === 'off' && !bothOff) {
+    groupRunning = false;
+    groupStep = 'idle';
+    return;
+  }
+  pending.group = null;
+  groupRunning = running;
+  groupStep = g.step || 'idle';
 }
 
-function setLevel(zone, v, instant) {
-  if (!dialEditable(zone)) return;
-  const pct = Math.round(Math.max(0, Math.min(100, +v)));
-  expectLevel[zone] = pct;
-  if (instant) {
-    dialShown[zone] = pct;
-    dialGoal[zone] = pct;
-    updateDialUI(zone, pct);
-  } else {
-    setDialGoal(zone, pct, false);
-  }
-  const wait = Math.max(0, 35 - (Date.now() - lastSendAt[zone]));
+function sendLevel(zone, value) {
   clearTimeout(sendTimers[zone]);
-  sendTimers[zone] = setTimeout(() => sendLevel(zone, pct), wait);
-}
-
-async function sendLevel(zone, value) {
-  if (expectLevel[zone] !== value) return;
-  if (!dialEditable(zone)) return;
-  const gen = ++levelGen[zone];
-  lastSendAt[zone] = Date.now();
-  try {
-    await api('/api/command', { zone, action: 'level', value });
-  } catch (e) {
-    if (levelGen[zone] === gen) {
-      expectLevel[zone] = null;
-      document.getElementById('datetime').textContent = e.message;
-    }
-  }
-}
-
-function uPathD() {
-  let d = '';
-  for (let i = 0; i <= 60; i++) {
-    const a = (U_START + (i / 60) * U_SWEEP) * Math.PI / 180;
-    const x = 60 + 52 * Math.cos(a);
-    const y = 60 - 52 * Math.sin(a);
-    d += (i ? 'L' : 'M') + x.toFixed(2) + ' ' + y.toFixed(2) + ' ';
-  }
-  return d;
-}
-
-function percentOnU(el, clientX, clientY) {
-  const rect = el.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-  let a = Math.atan2(-(clientY - cy), clientX - cx) * (180 / Math.PI);
-  if (a < 0) a += 360;
-  const gapEnd = (U_START + U_SWEEP) % 360;
-  if (a > gapEnd && a < U_START) {
-    return (a - gapEnd) < (U_START - a) ? 100 : 0;
-  }
-  if (a < U_START) a += 360;
-  return Math.max(0, Math.min(100, ((a - U_START) / U_SWEEP) * 100));
-}
-
-function layoutU() {
-  const d = uPathD();
-  document.querySelectorAll('.dial-track, .dial-arc').forEach((p) => {
-    p.setAttribute('d', d);
-  });
-}
-
-function bindZone(zone) {
-  const card = document.getElementById('card-' + zone);
-  const wrap = card.querySelector('.dial-wrap');
-  let mode = null;
-  let timer = 0;
-  let sx = 0;
-  let sy = 0;
-  let activePointerId = null;
-
-  const clearHold = () => {
-    clearTimeout(timer);
-    timer = 0;
-  };
-
-  const releaseCapture = () => {
-    if (activePointerId == null) return;
+  sendTimers[zone] = setTimeout(async () => {
+    if (expectLevel[zone] !== value || phase[zone] === 'off') return;
     try {
-      if (card.hasPointerCapture(activePointerId)) card.releasePointerCapture(activePointerId);
-    } catch (_) {}
-    activePointerId = null;
-  };
-
-  card.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 && e.pointerType === 'mouse') return;
-    mode = 'pending';
-    sx = e.clientX;
-    sy = e.clientY;
-    activePointerId = e.pointerId;
-    clearHold();
-    timer = setTimeout(() => {
-      if (mode !== 'pending') return;
-      mode = 'hold';
-      releaseCapture();
-      const ph = zonePhase[zone];
-      if (ph === 'off') cmd(zone, 'on');
-      else if (ph === 'on') cmd(zone, 'off');
-    }, HOLD_MS);
-    try { card.setPointerCapture(e.pointerId); } catch (_) {}
-  });
-
-  card.addEventListener('pointermove', (e) => {
-    if (e.pointerId !== activePointerId) return;
-    if (mode === 'hold') return;
-    if (mode !== 'pending' && mode !== 'drag') return;
-
-    const dist = Math.hypot(e.clientX - sx, e.clientY - sy);
-    if (mode === 'pending' && dist > 8) {
-      clearHold();
-      if (dialEditable(zone)) mode = 'drag';
-      else mode = 'blocked';
+      await api('/api/command', { zone, action: 'level', value });
+    } catch (e) {
+      expectLevel[zone] = null;
+      setStatus(e.message);
     }
-    if (mode === 'drag' && dialEditable(zone)) {
-      e.preventDefault();
-      const pct = Math.round(percentOnU(wrap, e.clientX, e.clientY));
-      picked[zone] = pct;
-      setLevel(zone, pct, true);
-    }
-  });
-
-  const end = (e) => {
-    if (activePointerId != null && e && e.pointerId !== activePointerId) return;
-    clearHold();
-    releaseCapture();
-    mode = null;
-    dialDragging.delete(zone);
-  };
-  card.addEventListener('pointerup', end);
-  card.addEventListener('pointercancel', end);
+  }, 40);
 }
 
-async function cmd(zone, action) {
-  expectLevel[zone] = null;
-  await api('/api/command', { zone, action });
-  poll();
+async function toggleZone(zone) {
+  const turnOn = phase[zone] === 'off';
+  pending[zone] = turnOn ? 'on' : 'off';
+  phase[zone] = turnOn ? 'turning_on' : 'turning_off';
+  if (!turnOn) levelShown[zone] = 0;
+  paint();
+  try {
+    await api('/api/command', { zone, action: turnOn ? 'on' : 'off' });
+    poll();
+  } catch (e) {
+    pending[zone] = null;
+    setStatus(e.message);
+    poll();
+  }
+}
+
+async function toggleGroup() {
+  const on = document.getElementById('switch-group').getAttribute('aria-checked') === 'true';
+  pending.group = on ? 'off' : 'on';
+  if (pending.group === 'on') {
+    groupRunning = true;
+    groupStep = 'cuna';
+  } else {
+    groupRunning = false;
+    groupStep = 'idle';
+    pending.cuna = 'off';
+    pending.setup = 'off';
+    phase.cuna = 'turning_off';
+    phase.setup = 'turning_off';
+  }
+  paint();
+  try {
+    await api('/api/command', { action: 'group', group: 'habitacion', enabled: !on });
+    poll();
+  } catch (e) {
+    pending.group = null;
+    setStatus(e.message);
+    poll();
+  }
+}
+
+async function toggleAlternate() {
+  if (!validateFields(['alt-level', 'alt-period'])) {
+    showView('settings');
+    showSettingsPage('settings-alternate');
+    return;
+  }
+  const next = !alternateOn;
+  alternateOn = next;
+  paint();
+  try {
+    const res = await api('/api/alternate', {
+      period: +document.getElementById('alt-period').value,
+      level: +document.getElementById('alt-level').value,
+      enabled: next
+    });
+    ['alt-period', 'alt-level'].forEach((id) => dirtyFields.delete(id));
+    applyAlternateFromServer(res.alternate, true);
+    alternateQuietUntil = Date.now() + 8000;
+    poll();
+  } catch (e) {
+    alternateOn = !next;
+    paint();
+    setStatus(e.message);
+  }
+}
+
+function bindChips(id, key) {
+  const root = document.getElementById(id);
+  root.querySelectorAll('.chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      root.querySelectorAll('.chip').forEach((item) => item.setAttribute('aria-pressed', 'false'));
+      chip.setAttribute('aria-pressed', 'true');
+      routineChoice[key] = chip.dataset.value;
+      if (key === 'action') document.getElementById('level-box').hidden = chip.dataset.value !== 'level';
+    });
+  });
+}
+
+function formatClock(hour, minute) {
+  const pm = hour >= 12;
+  let h = hour % 12;
+  if (h === 0) h = 12;
+  return h + ':' + String(minute).padStart(2, '0') + (pm ? ' p.m.' : ' a.m.');
 }
 
 function renderSchedules() {
-  const el = document.getElementById('sched-list');
+  document.getElementById('routine-dirty').hidden = !schedulesDirty;
+  const el = document.getElementById('routine-list');
   if (!schedules.length) {
-    el.innerHTML = '<p style="color:var(--muted);font-size:0.75rem;margin:0.5rem 0 0;">Sin horarios</p>';
+    el.innerHTML = '<p class="empty">Todavía no hay rutinas.</p>';
     return;
   }
-  el.innerHTML = schedules.map((s, i) =>
-    `<div class="sched-item">
-      <span>${s.enabled ? '●' : '○'} ${String(s.hour).padStart(2,'0')}:${String(s.minute).padStart(2,'0')} · ${s.zone} · ${s.action}${s.action === 'level' ? ' ' + s.level + '%' : ''}</span>
-      <button type="button" onclick="removeSched(${i})">×</button>
-    </div>`).join('');
+  el.innerHTML = schedules.map((item, i) => {
+    const where = ZONE_LABEL[item.zone] || item.zone;
+    const what = item.action === 'level'
+      ? 'Poner ' + where + ' al ' + item.level + '%'
+      : ACTION_LABEL[item.action] + ' ' + where;
+    return '<article class="routine"><div><div class="routine-time">' + formatClock(+item.hour, +item.minute) +
+      '</div><div class="routine-detail">' + what + (item.enabled ? '' : ' · pausada') +
+      '</div></div><button type="button" aria-label="Eliminar rutina ' + (i + 1) + '" data-remove="' + i + '">×</button></article>';
+  }).join('');
 }
 
 function addSchedule() {
+  if (!validateFields(['sch-time', 'sch-level'])) return;
+  if (schedules.length >= 10) {
+    setStatus('Puedes guardar hasta 10 rutinas');
+    return;
+  }
+  const parts = document.getElementById('sch-time').value.split(':');
+  const hour = +parts[0];
+  const minute = +parts[1];
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return;
   schedulesDirty = true;
   schedules.push({
     enabled: true,
-    hour: +document.getElementById('sch-h').value,
-    minute: +document.getElementById('sch-m').value,
-    zone: document.getElementById('sch-zone').value,
-    action: document.getElementById('sch-action').value,
+    hour: hour,
+    minute: minute,
+    zone: routineChoice.zone,
+    action: routineChoice.action,
     level: +document.getElementById('sch-level').value
   });
   renderSchedules();
 }
 
-function removeSched(i) {
-  schedulesDirty = true;
-  schedules.splice(i, 1);
-  renderSchedules();
-}
-
 async function saveSchedules() {
   schedulesQuietUntil = Date.now() + 8000;
-  const res = await api('/api/schedule', { schedules });
-  if (res.schedules) schedules = res.schedules;
-  schedulesDirty = false;
-  schedulesQuietUntil = Date.now() + 8000;
-  renderSchedules();
-  poll();
+  try {
+    const res = await api('/api/schedule', { schedules });
+    if (res.schedules) schedules = res.schedules;
+    schedulesDirty = false;
+    schedulesQuietUntil = Date.now() + 8000;
+    renderSchedules();
+    setStatus('Rutinas guardadas');
+  } catch (e) {
+    schedulesQuietUntil = 0;
+    setStatus(e.message);
+  }
 }
 
 function readSettingsForm() {
@@ -826,48 +955,35 @@ function readSettingsForm() {
   };
 }
 
-const SETTINGS_FIELD_IDS = ['cfg-fade-on', 'cfg-fade-off', 'cfg-gamma', 'cfg-default-on'];
-
-function applySettingsFromServer(st, force, pollSettingsToken) {
+function applySettingsFromServer(st, force, token) {
   if (!st) return;
-  if (!force && Date.now() < settingsQuietUntil) return;
-  if (!force && pollSettingsToken != null && pollSettingsToken !== settingsSaveToken) return;
-
-  const map = [
-    ['cfg-fade-on', st.fadeOnMs],
-    ['cfg-fade-off', st.fadeOffMs],
-    ['cfg-gamma', st.fadeGamma],
-    ['cfg-default-on', st.defaultOnLevel]
-  ];
-  for (const [id, val] of map) {
-    if (!Number.isFinite(val)) continue;
-    setFieldValue(id, val, force);
-  }
+  if (!force && (Date.now() < settingsQuietUntil || (token != null && token !== settingsSaveToken))) return;
+  [['cfg-fade-on', st.fadeOnMs], ['cfg-fade-off', st.fadeOffMs], ['cfg-gamma', st.fadeGamma], ['cfg-default-on', st.defaultOnLevel]]
+    .forEach(([id, value]) => {
+      if (Number.isFinite(+value)) setFieldValue(id, value, force);
+    });
 }
 
 async function saveSettings() {
-  const datetimeEl = document.getElementById('datetime');
+  if (!validateFields(['cfg-fade-on', 'cfg-fade-off', 'cfg-gamma', 'cfg-default-on'])) return;
+  const payload = readSettingsForm();
+  if (Object.values(payload).some((value) => !Number.isFinite(value))) {
+    setStatus('Revisa los valores');
+    return;
+  }
+  settingsSaveToken++;
+  settingsQuietUntil = Date.now() + 10000;
   try {
-    const payload = readSettingsForm();
-    if (Object.values(payload).some((v) => !Number.isFinite(v))) {
-      datetimeEl.textContent = 'Valor inválido';
-      return;
-    }
-
-    settingsSaveToken++;
-    settingsQuietUntil = Date.now() + 10000;
-
     const res = await api('/api/settings', { settings: payload });
-    if (!res.settings) throw new Error('Sin respuesta');
-
-    SETTINGS_FIELD_IDS.forEach((id) => dirtyFields.delete(id));
+    ['cfg-fade-on', 'cfg-fade-off', 'cfg-gamma', 'cfg-default-on'].forEach((id) => dirtyFields.delete(id));
     applySettingsFromServer(res.settings, true);
     settingsQuietUntil = Date.now() + 3000;
+    setStatus('Encendido guardado');
     poll();
   } catch (e) {
     settingsSaveToken--;
     settingsQuietUntil = 0;
-    datetimeEl.textContent = e.message;
+    setStatus(e.message);
   }
 }
 
@@ -877,10 +993,11 @@ function applyAlternateFromServer(alt, force) {
   setFieldValue('alt-period', alt.period, force);
   setFieldValue('alt-level', alt.level, force);
   alternateOn = !!alt.enabled;
-  document.getElementById('alt-btn').textContent = alternateOn ? 'Detener' : 'Activar';
+  paint();
 }
 
 async function saveAlternate() {
+  if (!validateFields(['alt-level', 'alt-period'])) return;
   alternateQuietUntil = Date.now() + 8000;
   try {
     const res = await api('/api/alternate', {
@@ -890,206 +1007,116 @@ async function saveAlternate() {
     ['alt-period', 'alt-level'].forEach((id) => dirtyFields.delete(id));
     applyAlternateFromServer(res.alternate, true);
     alternateQuietUntil = Date.now() + 8000;
+    setStatus('Modo alternado guardado');
   } catch (e) {
     alternateQuietUntil = 0;
-    document.getElementById('datetime').textContent = e.message;
+    setStatus(e.message);
   }
-}
-
-async function toggleAlternate() {
-  alternateOn = !alternateOn;
-  const res = await api('/api/alternate', {
-    period: +document.getElementById('alt-period').value,
-    level: +document.getElementById('alt-level').value,
-    enabled: alternateOn
-  });
-  ['alt-period', 'alt-level'].forEach((id) => dirtyFields.delete(id));
-  applyAlternateFromServer(res.alternate, true);
-  alternateQuietUntil = Date.now() + 8000;
-  poll();
 }
 
 const WEATHER_CACHE_KEY = 'homeWeatherV1';
 const WEATHER_FETCH_MS = 30 * 60 * 1000;
 const WEATHER_CACHE_MAX_MS = 2 * 60 * 60 * 1000;
-
 let weatherLat = null;
 let weatherLon = null;
 let weatherTimerStarted = false;
 let lastDateTimeMinuteKey = '';
-
-const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 function clockToDate(clock) {
-  if (!clock || clock.indexOf('NTP') >= 0 || clock.indexOf('Sincronizando') >= 0) {
-    return new Date();
-  }
-  const m = String(clock).match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
-  if (!m) return new Date();
-  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
-}
-
-function formatDateTimeEs(d) {
-  let h = d.getHours();
-  const min = d.getMinutes();
-  const pm = h >= 12;
-  if (h === 0) h = 12;
-  else if (h > 12) h -= 12;
-  const minStr = String(min).padStart(2, '0');
-  const ampm = pm ? 'p.m.' : 'a.m.';
-  return DIAS_SEMANA[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()] +
-    ' · ' + h + ':' + minStr + ' ' + ampm;
+  const match = String(clock || '').match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
+  if (!match) return new Date();
+  return new Date(+match[1], +match[2] - 1, +match[3], +match[4], +match[5], +match[6]);
 }
 
 function updateDateTimeFromClock(clock) {
-  const d = clockToDate(clock);
-  const key = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate() + '-' + d.getHours() + '-' + d.getMinutes();
+  const date = clockToDate(clock);
+  const key = [date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes()].join('-');
   if (key === lastDateTimeMinuteKey) return;
   lastDateTimeMinuteKey = key;
-  document.getElementById('datetime').textContent = formatDateTimeEs(d);
+  let hour = date.getHours();
+  const pm = hour >= 12;
+  if (hour === 0) hour = 12;
+  else if (hour > 12) hour -= 12;
+  document.getElementById('datetime').textContent =
+    DIAS[date.getDay()] + ' ' + date.getDate() + ' de ' + MESES[date.getMonth()] +
+    ' · ' + hour + ':' + String(date.getMinutes()).padStart(2, '0') + (pm ? ' p.m.' : ' a.m.');
 }
 
-function isDayLocal(d) {
-  const h = d.getHours();
-  return h >= 7 && h < 19;
-}
-
-function wmoKind(code) {
-  if (code <= 1) return 'clear';
-  if (code <= 3 || (code >= 45 && code <= 48)) return 'cloud';
-  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82) || (code >= 95 && code <= 99)) return 'rain';
-  if (code >= 71 && code <= 77) return 'cloud';
-  return 'cloud';
-}
-
-function weatherDesc(kind, isDay) {
-  if (kind === 'clear') return isDay ? 'despejado' : 'despejado';
-  if (kind === 'rain') return 'lluvia';
-  return 'nublado';
-}
-
-function weatherIconSvg(kind, isDay) {
-  if (kind === 'clear' && isDay) {
-    return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="var(--cuna)"/><g stroke="var(--cuna)" stroke-width="1.6" stroke-linecap="round"><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M5.6 18.4l1.6-1.6M16.8 7.2l1.6-1.6"/></g></svg>';
-  }
-  if (kind === 'clear' && !isDay) {
-    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4.2a6.5 6.5 0 1 0 7.8 9.4A5.2 5.2 0 0 1 12 19H8a5 5 0 0 1-.2-10 5.8 5.8 0 0 1 6.7-4.8z" fill="var(--setup)"/></svg>';
-  }
-  if (kind === 'rain') {
-    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14a5 5 0 0 1-.2-10 5.5 5.5 0 0 1 10.8 1.8A4.2 4.2 0 0 1 19 18H8a4 4 0 0 1-1-4z" fill="none" stroke="var(--muted)" stroke-width="1.4"/><path d="M9 19l-.8 2M12 19l-.8 2M15 19l-.8 2" stroke="var(--setup)" stroke-width="1.4" stroke-linecap="round"/></svg>';
-  }
-  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14a5 5 0 0 1-.2-10 5.5 5.5 0 0 1 10.8 1.8A4.2 4.2 0 0 1 19 18H8a4 4 0 0 1-1-4z" fill="var(--muted)" opacity="0.85"/></svg>';
-}
-
-function readWeatherCache() {
-  try {
-    const raw = localStorage.getItem(WEATHER_CACHE_KEY);
-    if (!raw) return null;
-    const o = JSON.parse(raw);
-    if (!o || !o.data || !o.ts) return null;
-    return o;
-  } catch (_) {
-    return null;
-  }
-}
-
-function writeWeatherCache(data) {
-  try {
-    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
-  } catch (_) {}
-}
-
-function hideWeatherPill() {
-  const pill = document.getElementById('weather-pill');
-  pill.classList.add('is-hidden');
-  pill.setAttribute('aria-hidden', 'true');
-  pill.removeAttribute('aria-label');
+function weatherIcon(kind, isDay) {
+  if (kind === 'clear' && isDay) return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>';
+  if (kind === 'clear') return '<svg viewBox="0 0 24 24"><path d="M15 5a6 6 0 1 0 6 8 5 5 0 0 1-8 6H8a5 5 0 0 1 0-10 6 6 0 0 1 7-4z" fill="currentColor"/></svg>';
+  if (kind === 'rain') return '<svg viewBox="0 0 24 24"><path d="M7 15a5 5 0 0 1 0-10 6 6 0 0 1 11 2 4 4 0 0 1 0 8z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 18l-1 2M13 18l-1 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  return '<svg viewBox="0 0 24 24"><path d="M7 16a5 5 0 0 1 0-10 6 6 0 0 1 11 2 4 4 0 0 1 0 8z" fill="currentColor"/></svg>';
 }
 
 function renderWeather(data) {
+  const pill = document.getElementById('weather-pill');
   if (!data || data.temp == null) {
-    hideWeatherPill();
+    pill.classList.add('is-hidden');
+    pill.setAttribute('aria-hidden', 'true');
     return;
   }
-  const isDay = data.isDay != null ? !!data.isDay : isDayLocal(new Date());
-  const kind = wmoKind(+data.code || 0);
-  const temp = Math.round(+data.temp);
-  const pill = document.getElementById('weather-pill');
-  document.getElementById('weather-icon').innerHTML = weatherIconSvg(kind, isDay);
-  document.getElementById('weather-temp').textContent = temp + '°';
+  const isDay = data.isDay != null ? !!data.isDay : (new Date().getHours() >= 7 && new Date().getHours() < 19);
+  const code = +data.code || 0;
+  const kind = code <= 1 ? 'clear' : ((code >= 51 && code <= 67) || code >= 80 ? 'rain' : 'cloud');
+  document.getElementById('weather-icon').innerHTML = weatherIcon(kind, isDay);
+  document.getElementById('weather-temp').textContent = Math.round(+data.temp) + '°';
   pill.classList.remove('is-hidden');
   pill.setAttribute('aria-hidden', 'false');
-  pill.setAttribute('aria-label', 'Clima: ' + weatherDesc(kind, isDay) + ', ' + temp + ' grados');
+}
+
+function readWeatherCache() {
+  try { return JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY) || 'null'); }
+  catch (e) { return null; }
 }
 
 async function fetchWeatherFromNetwork() {
   if (weatherLat == null || weatherLon == null) return;
-  const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + weatherLat +
-    '&longitude=' + weatherLon + '&current=temperature_2m,weather_code,is_day';
   try {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('HTTP');
-    const j = await r.json();
-    const cur = j && j.current;
-    if (!cur || cur.temperature_2m == null) throw new Error('sin datos');
-    const data = {
-      temp: cur.temperature_2m,
-      code: cur.weather_code,
-      isDay: cur.is_day === 1
-    };
-    writeWeatherCache(data);
+    const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + weatherLat + '&longitude=' + weatherLon + '&current=temperature_2m,weather_code,is_day');
+    if (!response.ok) throw new Error('clima');
+    const json = await response.json();
+    const current = json.current || {};
+    const data = { temp: current.temperature_2m, code: current.weather_code, isDay: current.is_day === 1 };
+    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
     renderWeather(data);
-  } catch (_) {
+  } catch (e) {
     const cached = readWeatherCache();
-    if (cached && Date.now() - cached.ts < WEATHER_CACHE_MAX_MS) {
-      renderWeather(cached.data);
-    } else {
-      hideWeatherPill();
-    }
+    if (cached && Date.now() - cached.ts < WEATHER_CACHE_MAX_MS) renderWeather(cached.data);
   }
 }
 
-function applyWeatherCacheIfFresh() {
-  const cached = readWeatherCache();
-  if (cached && Date.now() - cached.ts < WEATHER_CACHE_MAX_MS) {
-    renderWeather(cached.data);
-  }
-}
-
-function startWeatherSchedule() {
-  if (weatherTimerStarted) return;
+function syncWeatherCoords(s) {
+  if (!Number.isFinite(+s.weatherLat) || !Number.isFinite(+s.weatherLon)) return;
+  const changed = weatherLat !== +s.weatherLat || weatherLon !== +s.weatherLon;
+  weatherLat = +s.weatherLat;
+  weatherLon = +s.weatherLon;
+  if (!changed && weatherTimerStarted) return;
   weatherTimerStarted = true;
-  applyWeatherCacheIfFresh();
+  const cached = readWeatherCache();
+  if (cached && Date.now() - cached.ts < WEATHER_CACHE_MAX_MS) renderWeather(cached.data);
   fetchWeatherFromNetwork();
   setInterval(fetchWeatherFromNetwork, WEATHER_FETCH_MS);
 }
 
-function syncWeatherCoords(s) {
-  if (s.weatherLat == null || s.weatherLon == null) return;
-  const lat = +s.weatherLat;
-  const lon = +s.weatherLon;
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-  const changed = weatherLat !== lat || weatherLon !== lon;
-  weatherLat = lat;
-  weatherLon = lon;
-  if (changed || !weatherTimerStarted) startWeatherSchedule();
-}
-
-function applyStateFromPoll(s, pollSettingsToken) {
+function applyStateFromPoll(s, token) {
   if (!s.cuna || !s.setup) throw new Error('Estado inválido');
   updateDateTimeFromClock(s.clock);
   syncWeatherCoords(s);
-  for (const z of ['cuna', 'setup']) {
-    syncDialFromServer(z, s[z]);
-  }
+  ['cuna', 'setup'].forEach((zone) => acceptZone(zone, s[zone]));
+  applyGroup(s);
   applyAlternateFromServer(s.alternate, false);
-  applySettingsFromServer(s.settings, false, pollSettingsToken);
+  applySettingsFromServer(s.settings, false, token);
   if (!schedulesDirty && Date.now() >= schedulesQuietUntil) {
     schedules = s.schedules || [];
     renderSchedules();
   }
+  paint();
 }
+
+let liveError = '';
 
 async function poll() {
   if (pollRunning) {
@@ -1097,13 +1124,17 @@ async function poll() {
     return;
   }
   pollRunning = true;
-  const pollSettingsToken = settingsSaveToken;
+  const token = settingsSaveToken;
   try {
-    const s = await api('/api/state');
-    applyStateFromPoll(s, pollSettingsToken);
+    applyStateFromPoll(await api('/api/state'), token);
+    if (liveError) {
+      liveError = '';
+      setStatus('');
+    }
   } catch (e) {
     if (e.name !== 'AbortError') {
-      document.getElementById('datetime').textContent = e.message;
+      liveError = e.message;
+      setStatus(e.message);
     }
   } finally {
     pollRunning = false;
@@ -1116,25 +1147,19 @@ async function poll() {
 
 function applyOtaStatus(o) {
   if (!o) return;
-  document.getElementById('ota-version').textContent =
-    'v' + o.version + (o.latest ? ' · publicada v' + o.latest : '');
-  let msg = o.message || o.state;
-  if (o.state === 'downloading') msg += ' ' + o.progress + '%';
-  document.getElementById('ota-msg').textContent = msg;
+  document.getElementById('ota-version').textContent = 'v' + o.version + (o.latest ? ' · publicada v' + o.latest : '');
+  document.getElementById('ota-msg').textContent = (o.message || o.state || '–') + (o.state === 'downloading' ? ' ' + o.progress + '%' : '');
   document.getElementById('ota-btn').disabled = !!o.busy;
 }
 
 async function refreshOta() {
-  try {
-    applyOtaStatus(await api('/api/ota/status'));
-  } catch (e) {
-    document.getElementById('ota-msg').textContent = e.message;
-  }
+  try { applyOtaStatus(await api('/api/ota/status')); }
+  catch (e) { document.getElementById('ota-msg').textContent = e.message; }
 }
 
 async function checkOta() {
+  document.getElementById('ota-btn').disabled = true;
   try {
-    document.getElementById('ota-btn').disabled = true;
     await api('/api/ota/check', {});
     document.getElementById('ota-msg').textContent = 'Buscando versión nueva…';
   } catch (e) {
@@ -1143,30 +1168,81 @@ async function checkOta() {
   setTimeout(refreshOta, 1500);
 }
 
-document.getElementById('ota-panel').addEventListener('toggle', (ev) => {
-  if (ev.target.open) refreshOta();
+document.querySelectorAll('.tab').forEach((tab) => {
+  tab.addEventListener('click', () => showView(tab.dataset.view));
 });
-setInterval(() => {
-  if (document.getElementById('ota-panel').open) refreshOta();
-}, 2000);
+document.querySelectorAll('[data-page]').forEach((button) => {
+  button.addEventListener('click', () => showSettingsPage(button.dataset.page));
+});
+document.querySelectorAll('.back').forEach((button) => {
+  button.addEventListener('click', () => showSettingsPage('settings-root'));
+});
+document.getElementById('theme-dark').addEventListener('click', () => setTheme('dark'));
+document.getElementById('theme-light').addEventListener('click', () => setTheme('light'));
+document.getElementById('alt-toggle').addEventListener('click', toggleAlternate);
+document.getElementById('alt-switch').addEventListener('click', toggleAlternate);
+document.getElementById('switch-group').addEventListener('click', toggleGroup);
+document.getElementById('save-settings').addEventListener('click', saveSettings);
+document.getElementById('save-alternate').addEventListener('click', saveAlternate);
+document.getElementById('ota-btn').addEventListener('click', checkOta);
+document.getElementById('add-routine').addEventListener('click', addSchedule);
+document.getElementById('save-routines').addEventListener('click', saveSchedules);
+document.getElementById('routine-list').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-remove]');
+  if (!button) return;
+  schedulesDirty = true;
+  schedules.splice(+button.dataset.remove, 1);
+  renderSchedules();
+});
+document.getElementById('save-link').addEventListener('click', () => {
+  const input = document.getElementById('esp-base');
+  if (!input.reportValidity()) return;
+  localStorage.setItem('espApiBase', input.value.trim().replace(/\/$/, ''));
+  dirtyFields.delete('esp-base');
+  poll();
+});
 
-layoutU();
-trackFieldEdits();
-['cuna', 'setup'].forEach((z) => {
-  updateZoneChrome(z);
-  bindZone(z);
+['cuna', 'setup'].forEach((zone) => {
+  document.getElementById('open-' + zone).addEventListener('click', () => {
+    expanded = expanded === zone ? null : zone;
+    paint();
+  });
+  document.getElementById('switch-' + zone).addEventListener('click', () => toggleZone(zone));
+  const slider = document.getElementById('level-' + zone);
+  slider.addEventListener('pointerdown', () => dragging.add(zone));
+  const release = () => dragging.delete(zone);
+  slider.addEventListener('pointerup', release);
+  slider.addEventListener('pointercancel', release);
+  slider.addEventListener('input', () => {
+    const value = Math.round(+slider.value);
+    expectLevel[zone] = value;
+    levelShown[zone] = value;
+    phase[zone] = 'on';
+    slider.setAttribute('aria-valuenow', String(value));
+    document.getElementById(zone + '-sub').textContent = value + '%';
+    sendLevel(zone, value);
+  });
 });
-setDialGoal('cuna', 0, true);
-setDialGoal('setup', 0, true);
+
+bindChips('zone-chips', 'zone');
+bindChips('action-chips', 'action');
+document.getElementById('level-box').hidden = true;
+setTheme(document.documentElement.dataset.theme || 'dark');
+trackFieldEdits();
+renderSchedules();
+paint();
 
 if (isFileMode()) {
-  document.getElementById('file-mode').style.display = 'block';
+  document.getElementById('open-link').hidden = false;
   const saved = localStorage.getItem('espApiBase');
   if (saved) document.getElementById('esp-base').value = saved;
 }
 
 poll();
 setInterval(poll, POLL_MS);
+setInterval(() => {
+  if (!document.getElementById('settings-firmware').hidden) refreshOta();
+}, 2000);
 </script>
 </body>
 </html>

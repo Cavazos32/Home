@@ -41,7 +41,7 @@ class ScheduleManager {
   bool setEntries(const ScheduleEntry* src, size_t n);
   void clearAll();
 
-  void update(LightController& lights, AlternateMode& alternate);
+  bool update(LightController& lights, AlternateMode& alternate);
 
   void toJson(JsonArray arr) const;
   bool fromJson(JsonArray arr);
