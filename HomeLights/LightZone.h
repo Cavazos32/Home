@@ -24,6 +24,11 @@ class LightZone {
   /** Brillo físico > 0; usar phaseName() para OFF/ON/transiciones. */
   bool isOn() const { return brightness_ > 0.002f; }
   bool isTransitioning() const { return fadeActive_; }
+  /**
+   * Fracción 0..1 del recorrido de brillo ya cubierto por el fade en curso
+   * (|actual - inicio| / |objetivo - inicio|). Sin fade activo devuelve 1.
+   */
+  float transitionProgress() const;
   /** "off" | "turning_on" | "on" | "turning_off" */
   const char* phaseName() const;
 

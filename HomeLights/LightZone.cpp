@@ -39,6 +39,13 @@ uint8_t LightZone::targetLevel() const {
   return currentLevel();
 }
 
+float LightZone::transitionProgress() const {
+  if (!fadeActive_) return 1.0f;
+  const float span = fadeTargetBright_ - fadeStartBright_;
+  if (fabsf(span) < 0.0005f) return 1.0f;
+  return clamp01((brightness_ - fadeStartBright_) / span);
+}
+
 const char* LightZone::phaseName() const {
   if (fadeActive_) {
     return fadeTargetBright_ <= 0.002f ? "turning_off" : "turning_on";

@@ -67,7 +67,24 @@ El ESP32 lee `releases/latest/download/version.json`, descarga el `.bin` por HTT
 | Fade | Transición suave (API / botones web) |
 | Horarios | Hasta 10 eventos; hora por NTP; guardado en flash |
 | Modo alternado | Cuna ↔ setup rítmico (broma) |
+| Grupos | **Habitación** (Cuna 35 % → Setup 100 %) y **Baby** (Setup 40 % → Cuna 25 %) |
 | OTA | Actualizar firmware sin cable (red local o descarga desde internet) |
+
+## Grupos Habitación y Baby
+
+`POST /api/command` con `group` = `"habitacion"` o `"baby"` y `enabled` = `true`, `false` o `"toggle"`:
+
+```json
+{"action":"group","group":"baby","enabled":"toggle"}
+```
+
+- La segunda zona empieza cuando la primera cubre el 70 % de su recorrido (`ROUTINE_NEXT_STEP_AT`).
+- Una zona que ya está en su objetivo (±1 %) o va hacia él no se vuelve a tocar.
+- `true` activa el grupo (sustituye al otro sin apagar); `false` apaga ambas zonas; `"toggle"` lo decide el ESP32.
+- Solo hay un grupo activo. Un comando manual de zona, un horario o el modo alternado lo cancelan.
+- `GET /api/state` → `routine` (`active`, `state`: `idle`/`running`/`completed`, `step`) y `routines[]`; `group` se mantiene para clientes anteriores.
+
+Pruebas de host de la lógica de rutinas: `python tools/firmware_tests/run.py` (requiere `g++`, `clang++` o `pip install ziglang`).
 
 ## GPIO
 

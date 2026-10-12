@@ -20,8 +20,9 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
-VALID_ACTIONS = frozenset({"on", "off", "level", "fade", "toggle", "alternate"})
+VALID_ACTIONS = frozenset({"on", "off", "level", "fade", "toggle", "alternate", "group"})
 VALID_ZONES = frozenset({"cuna", "setup", "both"})
+VALID_GROUPS = frozenset({"habitacion", "baby"})
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,15 @@ def validate_command_body(body: dict[str, Any]) -> list[str]:
     if action == "alternate":
         return errors
 
+    if action == "group":
+        group = body.get("group", "habitacion")
+        if group not in VALID_GROUPS:
+            errors.append(f"grupo desconocido: {group!r}")
+        enabled = body.get("enabled")
+        if not isinstance(enabled, bool) and enabled != "toggle":
+            errors.append(f"enabled inválido (true, false o \"toggle\"): {enabled!r}")
+        return errors
+
     zone = body.get("zone", "both")
     if zone not in VALID_ZONES:
         errors.append(f"zona desconocida: {zone!r}")
@@ -72,8 +82,37 @@ def validate_command_body(body: dict[str, Any]) -> list[str]:
     return errors
 
 
-def validate_all() -> int:
+# Contrato de action "group" (Habitación / Baby): (cuerpo, ¿válido?).
+GROUP_CASES: list[tuple[dict[str, Any], bool]] = [
+    ({"action": "group", "group": "habitacion", "enabled": True}, True),
+    ({"action": "group", "group": "habitacion", "enabled": False}, True),
+    ({"action": "group", "group": "habitacion", "enabled": "toggle"}, True),
+    ({"action": "group", "group": "baby", "enabled": True}, True),
+    ({"action": "group", "group": "baby", "enabled": False}, True),
+    ({"action": "group", "group": "baby", "enabled": "toggle"}, True),
+    ({"action": "group", "enabled": "toggle"}, True),
+    ({"action": "group", "group": "baby"}, False),
+    ({"action": "group", "group": "baby", "enabled": "true"}, False),
+    ({"action": "group", "group": "baby", "enabled": 1}, False),
+    ({"action": "group", "group": "cocina", "enabled": True}, False),
+]
+
+
+def validate_group_cases() -> int:
     failed = 0
+    for body, expected in GROUP_CASES:
+        ok = not validate_command_body(body)
+        serialized = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
+        if ok != expected:
+            failed += 1
+            print(f"FAIL group {'aceptado' if ok else 'rechazado'}: {serialized}", file=sys.stderr)
+        else:
+            print(f"OK   group {'válido' if expected else 'inválido'}: {serialized}")
+    return failed
+
+
+def validate_all() -> int:
+    failed = validate_group_cases()
     for name, steps in SHORTCUTS.items():
         for i, step in enumerate(steps, start=1):
             errs = validate_command_body(step.body)

@@ -9,13 +9,23 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" id="meta-theme-color" content="#141210">
   <title>Home</title>
   <script>
-    try {
-      if (localStorage.getItem('homeTheme') === 'light') {
-        document.documentElement.dataset.theme = 'light';
-      }
-    } catch (e) {}
+    (function () {
+      var pref = 'auto';
+      try {
+        var saved = localStorage.getItem('homeThemePref');
+        if (saved === 'auto' || saved === 'light' || saved === 'dark') pref = saved;
+        else if (localStorage.getItem('homeTheme') === 'light') pref = 'light';
+      } catch (e) {}
+      var dark = pref === 'dark' || (pref === 'auto' &&
+        !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches));
+      document.documentElement.dataset.themePref = pref;
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      document.getElementById('meta-theme-color').content = dark ? '#141210' : '#f3eee7';
+    })();
   </script>
   <style>
     :root {
@@ -28,10 +38,14 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       --setup-on: #efe6d4;
       --group-on: #f0c56e;
       --on-text: #2a2114;
-      --nav: rgba(22, 20, 18, 0.92);
+      --nav: rgba(20, 18, 16, 0.92);
       --field: rgba(0, 0, 0, 0.28);
       --line: rgba(255, 255, 255, 0.08);
       --accent: #e4b15a;
+      --switch-off: #4a4642;
+      --pad: 1rem;
+      --gap: 0.5rem;
+      --tabbar-h: 64px;
       color-scheme: dark;
     }
 
@@ -45,17 +59,26 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       --setup-on: #d9e6f5;
       --group-on: #f2d48a;
       --on-text: #2a2114;
-      --nav: rgba(255, 252, 247, 0.94);
+      --nav: rgba(243, 238, 231, 0.94);
       --field: #fff;
       --line: rgba(40, 30, 16, 0.1);
       --accent: #c8892d;
+      --switch-off: #d7d1c8;
       color-scheme: light;
     }
 
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html {
+      min-height: 100%;
+      background: var(--bg);
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
 
     body {
       margin: 0;
+      min-height: 100vh;
       min-height: 100dvh;
       font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
       color: var(--text);
@@ -68,7 +91,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       padding:
         max(0.85rem, calc(env(safe-area-inset-top) + 0.35rem))
         max(1rem, env(safe-area-inset-right))
-        calc(6.2rem + env(safe-area-inset-bottom))
+        calc(var(--tabbar-h) + 1.25rem + env(safe-area-inset-bottom))
         max(1rem, env(safe-area-inset-left));
     }
 
@@ -151,7 +174,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .banner[hidden] { display: none; }
 
     .section-label {
-      margin: 1.25rem 0.15rem 0.5rem;
+      margin: 1.25rem var(--pad) 0.5rem;
       font-size: 0.72rem;
       font-weight: 700;
       letter-spacing: 0.14em;
@@ -171,7 +194,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .tile.setup.is-on { background: var(--setup-on); color: var(--on-text); border-color: transparent; }
     .tile.group.is-on { background: var(--group-on); color: var(--on-text); border-color: transparent; }
 
-    .tile-row { display: flex; align-items: center; padding-right: 0.85rem; }
+    .tile-row { display: flex; align-items: center; gap: 0.5rem; padding-right: var(--pad); }
 
     .tile-main {
       flex: 1;
@@ -180,7 +203,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       display: flex;
       align-items: center;
       gap: 0.8rem;
-      padding: 0.8rem 0.35rem 0.8rem 0.9rem;
+      padding: 0.8rem 0 0.8rem var(--pad);
       border: 0;
       background: transparent;
       color: inherit;
@@ -202,19 +225,20 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .tile-copy { min-width: 0; }
     .tile-name, .tile-sub { display: block; }
     .tile-name { font-size: 1.05rem; font-weight: 650; }
-    .tile-sub { margin-top: 0.15rem; font-size: 0.8rem; opacity: 0.75; }
+    .tile-sub { margin-top: 0.15rem; font-size: 0.8rem; opacity: 0.75; overflow-wrap: anywhere; }
 
     .switch {
       width: 52px;
       height: 32px;
+      padding: 0;
       border: 0;
       border-radius: 999px;
-      background: #4a4642;
+      background: var(--switch-off);
       position: relative;
       flex: 0 0 auto;
     }
 
-    html[data-theme="light"] .switch { background: #d7d1c8; }
+    .switch:disabled { opacity: 0.6; }
 
     .switch::after {
       content: "";
@@ -232,12 +256,12 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .switch[aria-checked="true"] { background: rgba(255, 255, 255, 0.92); }
     .switch[aria-checked="true"]::after { transform: translateX(20px); }
 
-    .tile-extra { padding: 0 1rem 0.95rem; }
+    .tile-extra { padding: 0 var(--pad) var(--pad); }
     .tile-extra[hidden] { display: none; }
     .tile-extra .field-label { margin: 0 0 0.35rem; }
     .hint { margin: 0; font-size: 0.82rem; opacity: 0.8; }
 
-    input[type="range"] { width: 100%; height: 32px; accent-color: currentColor; }
+    input[type="range"] { display: block; width: 100%; height: 32px; margin: 0; accent-color: currentColor; }
 
     .menu-row, .back {
       width: 100%;
@@ -246,7 +270,8 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       align-items: center;
       justify-content: space-between;
       gap: 0.75rem;
-      padding: 0.85rem 1rem;
+      margin: 0;
+      padding: 0.85rem var(--pad);
       border: 0;
       border-bottom: 1px solid var(--line);
       background: transparent;
@@ -255,41 +280,53 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       font-size: 1rem;
     }
 
+    .panel.list .menu-row:last-child { border-bottom: 0; }
+
+    /* Contenido de tarjeta: todo hijo usa el mismo margen lateral (--pad). */
     .panel {
       background: var(--card);
       border: 1px solid var(--card-border);
       border-radius: 22px;
       overflow: hidden;
       margin-bottom: 0.85rem;
+      padding-bottom: var(--pad);
     }
+
+    .panel.list { padding-bottom: 0; }
 
     .panel h2, .subhead {
       margin: 0;
-      padding: 1rem 1rem 0.2rem;
+      padding: var(--pad) var(--pad) 0;
       font-size: 1.15rem;
+      line-height: 1.3;
     }
 
     .help {
-      margin: 0.25rem 1rem 0.8rem;
+      margin: 0.3rem var(--pad) 0;
       color: var(--muted);
       font-size: 0.82rem;
       line-height: 1.4;
+      overflow-wrap: anywhere;
     }
 
-    label.field-label {
+    .field-label {
       display: block;
-      margin: 0.7rem 1rem 0.3rem;
+      margin: 0.9rem var(--pad) 0.4rem;
       color: var(--muted);
       font-size: 0.75rem;
       font-weight: 650;
       letter-spacing: 0.04em;
+      line-height: 1.3;
       text-transform: uppercase;
     }
 
     .field {
-      width: calc(100% - 2rem);
+      display: block;
+      width: calc(100% - 2 * var(--pad));
+      max-width: calc(100% - 2 * var(--pad));
+      min-width: 0;
       min-height: 44px;
-      margin: 0 1rem 0.35rem;
+      margin: 0 var(--pad);
       padding: 0.65rem 0.8rem;
       border-radius: 12px;
       border: 1px solid var(--line);
@@ -297,20 +334,30 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       color: var(--text);
       font: inherit;
       font-size: 1rem;
+      line-height: 1.25;
+      -webkit-appearance: none;
+      appearance: none;
     }
 
-    .choices, .chips, .row { display: flex; gap: 0.5rem; }
-    .choices, .chips { padding: 0.35rem 1rem 1rem; }
-    .row { padding: 0.4rem 1rem 1rem; }
+    /* Safari iOS da a date/time un ancho intrínseco y centra el valor. */
+    input[type="time"].field { min-width: 0; text-align: left; }
+    input[type="time"].field::-webkit-date-and-time-value { text-align: left; margin: 0; }
+
+    .choices, .chips, .row { display: flex; flex-wrap: wrap; gap: var(--gap); padding: 0 var(--pad); }
+    .row { padding-top: var(--pad); }
+    .help + .choices, .help + .chips { margin-top: 0.85rem; }
+    .field-label + .help { margin-top: 0; }
+    .help + .menu-row { margin-top: 0.85rem; border-top: 1px solid var(--line); }
 
     .choice, .chip, .text-btn, .primary {
       min-height: 44px;
       border-radius: 14px;
       border: 1px solid var(--line);
       background: transparent;
+      font-size: 0.95rem;
     }
 
-    .choice, .chip { flex: 1; padding: 0.55rem 0.4rem; }
+    .choice, .chip { flex: 1 1 5rem; min-width: 0; padding: 0.55rem 0.4rem; }
     .choice[aria-pressed="true"], .chip[aria-pressed="true"], .primary {
       background: var(--text);
       color: var(--bg);
@@ -325,13 +372,17 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.9rem 1rem;
+      padding: 0.9rem var(--pad);
       border-top: 1px solid var(--line);
     }
 
+    .routine:first-child { border-top: 0; }
+    .routine > div { min-width: 0; }
+
     .routine-time { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.03em; }
-    .routine-detail { color: var(--muted); font-size: 0.82rem; margin-top: 0.15rem; }
+    .routine-detail { color: var(--muted); font-size: 0.82rem; margin-top: 0.15rem; overflow-wrap: anywhere; }
     .routine button {
+      flex: 0 0 auto;
       margin-left: auto;
       min-width: 44px;
       min-height: 44px;
@@ -343,7 +394,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       font-size: 1.3rem;
     }
 
-    .empty { margin: 0; padding: 1rem; color: var(--muted); }
+    .empty { margin: 0; padding: var(--pad); color: var(--muted); }
 
     .dirty-bar {
       display: flex;
@@ -375,8 +426,14 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       right: 0;
       bottom: 0;
       z-index: 5;
-      padding: 0.35rem 1rem calc(0.35rem + env(safe-area-inset-bottom));
+      min-height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+      padding:
+        0.35rem
+        max(1rem, env(safe-area-inset-right))
+        calc(0.35rem + env(safe-area-inset-bottom))
+        max(1rem, env(safe-area-inset-left));
       background: var(--nav);
+      -webkit-backdrop-filter: blur(16px);
       backdrop-filter: blur(16px);
       border-top: 1px solid var(--line);
     }
@@ -464,13 +521,22 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       </article>
 
       <h2 class="section-label">Grupos</h2>
-      <article class="tile group" id="tile-group">
+      <article class="tile group" id="tile-habitacion">
         <div class="tile-row">
           <div class="tile-main" style="cursor:default">
             <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 16l8 4 8-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
-            <span class="tile-copy"><span class="tile-name">Habitación</span><span class="tile-sub" id="group-sub">Primero Cunero al 35%, luego Setup al 100%</span></span>
+            <span class="tile-copy"><span class="tile-name">Habitación</span><span class="tile-sub" id="habitacion-sub">Cunero 35% → Setup 100%</span></span>
           </div>
-          <button class="switch" id="switch-group" type="button" role="switch" aria-checked="false" aria-label="Grupo Habitación"></button>
+          <button class="switch" id="switch-habitacion" type="button" role="switch" aria-checked="false" aria-label="Grupo Habitación"></button>
+        </div>
+      </article>
+      <article class="tile group" id="tile-baby">
+        <div class="tile-row">
+          <div class="tile-main" style="cursor:default">
+            <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M15.5 4.5a7.5 7.5 0 1 0 4 13.6A8 8 0 0 1 15.5 4.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
+            <span class="tile-copy"><span class="tile-name">Baby</span><span class="tile-sub" id="baby-sub">Setup 40% → Cunero 25%</span></span>
+          </div>
+          <button class="switch" id="switch-baby" type="button" role="switch" aria-checked="false" aria-label="Grupo Baby"></button>
         </div>
       </article>
     </section>
@@ -483,7 +549,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       </div>
       <div class="panel">
         <h2>Nueva rutina</h2>
-        <p class="help">Elige cuándo y qué debe ocurrir. Encender usa el nivel configurado en Ajustes. El grupo Habitación, en Inicio, hace su propia secuencia.</p>
+        <p class="help">Elige cuándo y qué debe ocurrir. Encender usa el nivel configurado en Ajustes. Los grupos Habitación y Baby, en Inicio, hacen su propia secuencia.</p>
         <label class="field-label" for="sch-time">Hora</label>
         <input class="field" id="sch-time" type="time" value="22:00" required>
         <p class="field-label">Dónde</p>
@@ -504,7 +570,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         </div>
         <div class="row"><button class="primary" id="add-routine" type="button">Agregar</button></div>
       </div>
-      <div class="panel" id="routine-list"></div>
+      <div class="panel list" id="routine-list"></div>
     </section>
 
     <section class="view" id="view-settings" hidden>
@@ -512,13 +578,14 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <h2 class="section-label">Ajustes</h2>
         <div class="panel">
           <h2>Apariencia</h2>
-          <p class="help">Elige el modo que se vea mejor en la habitación.</p>
-          <div class="choices" role="radiogroup" aria-label="Apariencia">
-            <button class="choice" id="theme-dark" type="button" aria-pressed="true">Oscuro</button>
-            <button class="choice" id="theme-light" type="button" aria-pressed="false">Claro</button>
+          <p class="help">Automático sigue la apariencia del iPhone.</p>
+          <div class="choices" role="group" aria-label="Apariencia">
+            <button class="choice" type="button" data-theme-choice="auto" aria-pressed="true">Automático</button>
+            <button class="choice" type="button" data-theme-choice="light" aria-pressed="false">Claro</button>
+            <button class="choice" type="button" data-theme-choice="dark" aria-pressed="false">Oscuro</button>
           </div>
         </div>
-        <div class="panel">
+        <div class="panel list">
           <button class="menu-row" type="button" data-page="settings-light">Encendido <span aria-hidden="true">›</span></button>
           <button class="menu-row" type="button" data-page="settings-alternate">Modo alternado <span aria-hidden="true">›</span></button>
           <button class="menu-row" type="button" data-page="settings-firmware">Firmware <span aria-hidden="true">›</span></button>
@@ -597,13 +664,21 @@ let schedules = [];
 let schedulesDirty = false;
 let alternateOn = false;
 let expanded = null;
-let groupRunning = false;
-let groupStep = 'idle';
-const groupLevels = { cuna: 35, setup: 100 };
+const ROUTINE_IDS = ['habitacion', 'baby'];
+const routines = {
+  habitacion: { state: 'idle', step: 'idle', steps: [{ zone: 'cuna', level: 35 }, { zone: 'setup', level: 100 }] },
+  baby: { state: 'idle', step: 'idle', steps: [{ zone: 'setup', level: 40 }, { zone: 'cuna', level: 25 }] }
+};
+let routinesSupported = true;
+// Comando de rutina sin confirmar: { id, expect: 'on' | 'off' }.
+let routinePending = null;
+// Cambia con cada acción local que afecta a las rutinas; un poll iniciado antes
+// de la acción no puede sobrescribir el estado que ésta produjo.
+let routineGen = 0;
 const phase = { cuna: 'off', setup: 'off' };
 const levelShown = { cuna: 0, setup: 0 };
 const expectLevel = { cuna: null, setup: null };
-const pending = { cuna: null, setup: null, group: null };
+const pending = { cuna: null, setup: null };
 const dragging = new Set();
 const dirtyFields = new Set();
 const editingFields = new Set();
@@ -620,12 +695,40 @@ function setStatus(message) {
   document.getElementById('status').textContent = message || '';
 }
 
-function setTheme(theme) {
-  const next = theme === 'light' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = next;
-  localStorage.setItem('homeTheme', next);
-  document.getElementById('theme-dark').setAttribute('aria-pressed', String(next === 'dark'));
-  document.getElementById('theme-light').setAttribute('aria-pressed', String(next === 'light'));
+const THEME_PREF_KEY = 'homeThemePref';
+const THEME_PREFS = ['auto', 'light', 'dark'];
+const THEME_BG = { dark: '#141210', light: '#f3eee7' };
+const lightQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+let themePref = THEME_PREFS.includes(document.documentElement.dataset.themePref)
+  ? document.documentElement.dataset.themePref : 'auto';
+
+function effectiveTheme(pref) {
+  if (pref === 'light' || pref === 'dark') return pref;
+  return lightQuery && lightQuery.matches ? 'light' : 'dark';
+}
+
+function applyTheme() {
+  const theme = effectiveTheme(themePref);
+  const root = document.documentElement;
+  root.dataset.theme = theme;
+  root.dataset.themePref = themePref;
+  document.getElementById('meta-theme-color').content = THEME_BG[theme];
+  document.querySelectorAll('[data-theme-choice]').forEach((button) => {
+    button.setAttribute('aria-pressed', String(button.dataset.themeChoice === themePref));
+  });
+}
+
+function setThemePref(pref) {
+  themePref = THEME_PREFS.includes(pref) ? pref : 'auto';
+  try {
+    localStorage.setItem(THEME_PREF_KEY, themePref);
+    localStorage.removeItem('homeTheme');
+  } catch (e) {}
+  applyTheme();
+}
+
+function followSystemTheme() {
+  if (themePref === 'auto') applyTheme();
 }
 
 function showView(name) {
@@ -733,16 +836,16 @@ function paint() {
     }
   });
 
-  const anyOn = phase.cuna !== 'off' || phase.setup !== 'off';
-  const bothOn = phase.cuna !== 'off' && phase.setup !== 'off';
-  const groupOn = groupRunning || bothOn || pending.group === 'on';
-  document.getElementById('tile-group').classList.toggle('is-on', groupOn);
-  document.getElementById('switch-group').setAttribute('aria-checked', String(groupOn));
-  let detail = 'Primero Cunero al ' + groupLevels.cuna + '%, luego Setup al ' + groupLevels.setup + '%';
-  if (groupStep === 'cuna' || (pending.group === 'on' && !bothOn)) detail = 'Encendiendo Cunero…';
-  else if (groupStep === 'setup') detail = 'Encendiendo Setup…';
-  else if (!groupOn && anyOn) detail = 'Solo una zona está encendida';
-  document.getElementById('group-sub').textContent = detail;
+  ROUTINE_IDS.forEach((id) => {
+    const on = routines[id].state !== 'idle';
+    const tile = document.getElementById('tile-' + id);
+    tile.hidden = id !== 'habitacion' && !routinesSupported;
+    tile.classList.toggle('is-on', on);
+    const sw = document.getElementById('switch-' + id);
+    sw.setAttribute('aria-checked', String(on));
+    sw.disabled = !!routinePending;
+    document.getElementById(id + '-sub').textContent = routineText(id);
+  });
 
   document.getElementById('alt-toggle').setAttribute('aria-pressed', String(alternateOn));
   document.getElementById('alt-toggle').classList.toggle('is-on', alternateOn);
@@ -770,26 +873,56 @@ function acceptZone(zone, server) {
   levelShown[zone] = nextPhase === 'off' ? 0 : serverLevel;
 }
 
-function applyGroup(s) {
-  const g = s.group || {};
-  if (Number.isFinite(+g.cunaLevel)) groupLevels.cuna = Math.round(+g.cunaLevel);
-  if (Number.isFinite(+g.setupLevel)) groupLevels.setup = Math.round(+g.setupLevel);
-  const running = !!g.running;
-  const bothOn = phase.cuna !== 'off' && phase.setup !== 'off';
-  const bothOff = phase.cuna === 'off' && phase.setup === 'off';
-  if (pending.group === 'on' && !running && !bothOn) {
-    groupRunning = true;
-    groupStep = 'cuna';
+function routineText(id) {
+  const r = routines[id];
+  const plan = r.steps.map((step) => ZONE_LABEL[step.zone] + ' ' + step.level + '%');
+  if (routinePending && routinePending.id === id) {
+    return routinePending.expect === 'on' ? 'Iniciando…' : 'Apagando…';
+  }
+  if (r.state === 'running') {
+    return ZONE_LABEL[r.step] ? 'Encendiendo ' + ZONE_LABEL[r.step] + '…' : 'En curso…';
+  }
+  if (r.state === 'completed') return 'Activo · ' + plan.join(' · ');
+  return plan.join(' → ');
+}
+
+function applyRoutinesFromServer(s) {
+  if (Array.isArray(s.routines)) {
+    routinesSupported = true;
+    s.routines.forEach((item) => {
+      const r = routines[item.id];
+      if (!r) return;
+      r.state = item.state === 'running' || item.state === 'completed' ? item.state : 'idle';
+      r.step = r.state === 'running' ? (item.step || 'idle') : 'idle';
+      if (Array.isArray(item.steps) && item.steps.length) {
+        r.steps = item.steps
+          .filter((step) => ZONE_LABEL[step.zone] && Number.isFinite(+step.level))
+          .map((step) => ({ zone: step.zone, level: Math.round(+step.level) }));
+      }
+    });
     return;
   }
-  if (pending.group === 'off' && !bothOff) {
-    groupRunning = false;
-    groupStep = 'idle';
-    return;
+  // Firmware anterior: solo existe "group" (Habitación) y no distingue "completed".
+  const g = s.group;
+  if (!g) return;
+  routinesSupported = false;
+  const hab = routines.habitacion;
+  hab.state = g.running ? 'running' : 'idle';
+  hab.step = g.running ? (g.step || 'idle') : 'idle';
+  if (Number.isFinite(+g.cunaLevel) && Number.isFinite(+g.setupLevel)) {
+    hab.steps = [{ zone: 'cuna', level: Math.round(+g.cunaLevel) }, { zone: 'setup', level: Math.round(+g.setupLevel) }];
   }
-  pending.group = null;
-  groupRunning = running;
-  groupStep = g.step || 'idle';
+  routines.baby.state = 'idle';
+  routines.baby.step = 'idle';
+}
+
+// Una acción manual (zona o modo alternado) cancela la rutina en el ESP32.
+function markRoutinesCancelled() {
+  routineGen++;
+  ROUTINE_IDS.forEach((id) => {
+    routines[id].state = 'idle';
+    routines[id].step = 'idle';
+  });
 }
 
 function sendLevel(zone, value) {
@@ -810,40 +943,50 @@ async function toggleZone(zone) {
   pending[zone] = turnOn ? 'on' : 'off';
   phase[zone] = turnOn ? 'turning_on' : 'turning_off';
   if (!turnOn) levelShown[zone] = 0;
+  markRoutinesCancelled();
   paint();
   try {
     await api('/api/command', { zone, action: turnOn ? 'on' : 'off' });
+    routineGen++;
     poll();
   } catch (e) {
     pending[zone] = null;
+    routineGen++;
     setStatus(e.message);
     poll();
   }
 }
 
-async function toggleGroup() {
-  const on = document.getElementById('switch-group').getAttribute('aria-checked') === 'true';
-  pending.group = on ? 'off' : 'on';
-  if (pending.group === 'on') {
-    groupRunning = true;
-    groupStep = 'cuna';
-  } else {
-    groupRunning = false;
-    groupStep = 'idle';
-    pending.cuna = 'off';
-    pending.setup = 'off';
-    phase.cuna = 'turning_off';
-    phase.setup = 'turning_off';
+async function toggleRoutine(id) {
+  if (routinePending) return;
+  const previous = JSON.parse(JSON.stringify(routines));
+  const turnOn = routines[id].state === 'idle';
+  routinePending = { id, expect: turnOn ? 'on' : 'off' };
+  ROUTINE_IDS.forEach((other) => {
+    routines[other].state = 'idle';
+    routines[other].step = 'idle';
+  });
+  if (turnOn) {
+    routines[id].state = 'running';
+    routines[id].step = routines[id].steps[0].zone;
+  }
+  routineGen++;
+  paint();
+  // El ESP32 decide el toggle; el firmware anterior solo entiende booleanos.
+  const enabled = routinesSupported ? 'toggle' : turnOn;
+  try {
+    const res = await api('/api/command', { action: 'group', group: id, enabled });
+    routineGen++;
+    routinePending = null;
+    applyRoutinesFromServer(res);
+  } catch (e) {
+    routineGen++;
+    routinePending = null;
+    ROUTINE_IDS.forEach((other) => Object.assign(routines[other], previous[other]));
+    setStatus(e.message);
   }
   paint();
-  try {
-    await api('/api/command', { action: 'group', group: 'habitacion', enabled: !on });
-    poll();
-  } catch (e) {
-    pending.group = null;
-    setStatus(e.message);
-    poll();
-  }
+  poll();
 }
 
 async function toggleAlternate() {
@@ -854,6 +997,7 @@ async function toggleAlternate() {
   }
   const next = !alternateOn;
   alternateOn = next;
+  if (next) markRoutinesCancelled();
   paint();
   try {
     const res = await api('/api/alternate', {
@@ -864,11 +1008,14 @@ async function toggleAlternate() {
     ['alt-period', 'alt-level'].forEach((id) => dirtyFields.delete(id));
     applyAlternateFromServer(res.alternate, true);
     alternateQuietUntil = Date.now() + 8000;
+    routineGen++;
     poll();
   } catch (e) {
     alternateOn = !next;
+    routineGen++;
     paint();
     setStatus(e.message);
+    poll();
   }
 }
 
@@ -1101,12 +1248,12 @@ function syncWeatherCoords(s) {
   setInterval(fetchWeatherFromNetwork, WEATHER_FETCH_MS);
 }
 
-function applyStateFromPoll(s, token) {
+function applyStateFromPoll(s, token, gen) {
   if (!s.cuna || !s.setup) throw new Error('Estado inválido');
   updateDateTimeFromClock(s.clock);
   syncWeatherCoords(s);
   ['cuna', 'setup'].forEach((zone) => acceptZone(zone, s[zone]));
-  applyGroup(s);
+  if (!routinePending && gen === routineGen) applyRoutinesFromServer(s);
   applyAlternateFromServer(s.alternate, false);
   applySettingsFromServer(s.settings, false, token);
   if (!schedulesDirty && Date.now() >= schedulesQuietUntil) {
@@ -1125,8 +1272,9 @@ async function poll() {
   }
   pollRunning = true;
   const token = settingsSaveToken;
+  const gen = routineGen;
   try {
-    applyStateFromPoll(await api('/api/state'), token);
+    applyStateFromPoll(await api('/api/state'), token, gen);
     if (liveError) {
       liveError = '';
       setStatus('');
@@ -1177,11 +1325,21 @@ document.querySelectorAll('[data-page]').forEach((button) => {
 document.querySelectorAll('.back').forEach((button) => {
   button.addEventListener('click', () => showSettingsPage('settings-root'));
 });
-document.getElementById('theme-dark').addEventListener('click', () => setTheme('dark'));
-document.getElementById('theme-light').addEventListener('click', () => setTheme('light'));
+document.querySelectorAll('[data-theme-choice]').forEach((button) => {
+  button.addEventListener('click', () => setThemePref(button.dataset.themeChoice));
+});
+if (lightQuery) {
+  if (lightQuery.addEventListener) lightQuery.addEventListener('change', followSystemTheme);
+  else if (lightQuery.addListener) lightQuery.addListener(followSystemTheme);
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) followSystemTheme();
+});
 document.getElementById('alt-toggle').addEventListener('click', toggleAlternate);
 document.getElementById('alt-switch').addEventListener('click', toggleAlternate);
-document.getElementById('switch-group').addEventListener('click', toggleGroup);
+ROUTINE_IDS.forEach((id) => {
+  document.getElementById('switch-' + id).addEventListener('click', () => toggleRoutine(id));
+});
 document.getElementById('save-settings').addEventListener('click', saveSettings);
 document.getElementById('save-alternate').addEventListener('click', saveAlternate);
 document.getElementById('ota-btn').addEventListener('click', checkOta);
@@ -1218,6 +1376,7 @@ document.getElementById('save-link').addEventListener('click', () => {
     expectLevel[zone] = value;
     levelShown[zone] = value;
     phase[zone] = 'on';
+    markRoutinesCancelled();
     slider.setAttribute('aria-valuenow', String(value));
     document.getElementById(zone + '-sub').textContent = value + '%';
     sendLevel(zone, value);
@@ -1227,7 +1386,7 @@ document.getElementById('save-link').addEventListener('click', () => {
 bindChips('zone-chips', 'zone');
 bindChips('action-chips', 'action');
 document.getElementById('level-box').hidden = true;
-setTheme(document.documentElement.dataset.theme || 'dark');
+applyTheme();
 trackFieldEdits();
 renderSchedules();
 paint();
