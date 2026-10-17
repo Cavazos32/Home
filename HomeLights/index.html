@@ -132,45 +132,168 @@
     .status:empty { display: none; }
 
     .day-banner {
+      position: relative;
+      overflow: hidden;
       display: flex;
-      align-items: center;
+      align-items: stretch;
       justify-content: space-between;
-      gap: 0.8rem;
-      min-height: 62px;
+      gap: 0.75rem;
+      min-height: 88px;
       margin: 0.75rem 0 0.25rem;
-      padding: 0.85rem 1.15rem;
+      padding: 0.95rem 1.1rem;
       border: 1px solid var(--card-border);
-      border-radius: var(--pill-radius);
+      border-radius: 24px;
       background: var(--card);
       box-shadow: var(--surface-shadow), var(--surface-inset);
+      transition: background 0.45s ease, color 0.35s ease, border-color 0.35s ease;
     }
+
+    .day-banner::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.28), transparent 55%);
+      pointer-events: none;
+    }
+
+    .day-banner.weather-neutral::before { display: none; }
+
+    .weather-banner-main {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 0;
+    }
+
+    .weather-emoji {
+      font-size: 2.35rem;
+      line-height: 1;
+      flex: 0 0 auto;
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.12));
+    }
+
+    .weather-emoji.is-hidden { visibility: hidden; width: 0; margin: 0; overflow: hidden; }
+
+    .weather-banner-copy { min-width: 0; }
 
     #datetime {
       margin: 0;
-      font-size: 0.82rem;
-      font-weight: 500;
+      font-size: 0.78rem;
+      font-weight: 600;
       line-height: 1.35;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
     }
 
-    .weather-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      min-height: 34px;
-      padding: 0.25rem 0.75rem;
-      border-radius: var(--pill-radius);
-      border: 1px solid var(--card-border);
-      background: color-mix(in srgb, var(--walnut-soft) 35%, transparent);
-      box-shadow: var(--surface-inset);
-      font-size: 0.82rem;
-      font-weight: 600;
-      letter-spacing: 0.06em;
+    .weather-label {
+      margin: 0.28rem 0 0;
+      font-size: 0.92rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      line-height: 1.25;
+      opacity: 0.92;
     }
 
-    .weather-pill.is-hidden { display: none; }
-    .weather-icon svg { width: 19px; height: 19px; display: block; }
+    .weather-label:empty { display: none; }
+
+    .weather-banner-temp {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: flex-start;
+      flex: 0 0 auto;
+      font-size: 2rem;
+      font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .weather-banner-temp.is-hidden { display: none; }
+
+    .day-banner.weather-sunny {
+      background: linear-gradient(145deg, #47b5ff 0%, #6ec1ff 38%, #ffb347 100%);
+      border-color: rgba(255, 255, 255, 0.28);
+      color: #fff;
+    }
+
+    .day-banner.weather-partly {
+      background: linear-gradient(145deg, #5eb3f6 0%, #9cc8ef 52%, #ffd27a 100%);
+      border-color: rgba(255, 255, 255, 0.25);
+      color: #fff;
+    }
+
+    .day-banner.weather-cloudy {
+      background: linear-gradient(145deg, #7b8ea3 0%, #a8b5c4 55%, #c9d1da 100%);
+      border-color: rgba(255, 255, 255, 0.22);
+      color: #fff;
+    }
+
+    .day-banner.weather-rain {
+      background: linear-gradient(145deg, #4a6073 0%, #5f7a92 45%, #7a95ad 100%);
+      border-color: rgba(255, 255, 255, 0.18);
+      color: #fff;
+    }
+
+    .day-banner.weather-storm {
+      background: linear-gradient(145deg, #2f3447 0%, #4a3f5c 42%, #1f2435 100%);
+      border-color: rgba(255, 255, 255, 0.14);
+      color: #fff;
+    }
+
+    .day-banner.weather-night {
+      background: linear-gradient(145deg, #141c33 0%, #2a3560 48%, #0f1424 100%);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #eef2ff;
+    }
+
+    .day-banner.weather-snow {
+      background: linear-gradient(145deg, #dce9f8 0%, #eef4fb 55%, #f8fbff 100%);
+      border-color: rgba(120, 140, 170, 0.22);
+      color: #334155;
+    }
+
+    html[data-theme="light"] .day-banner.weather-sunny {
+      background: linear-gradient(145deg, #7cc8ff 0%, #a8dcff 40%, #ffd89b 100%);
+      color: #1e3a5f;
+    }
+
+    html[data-theme="light"] .day-banner.weather-partly {
+      background: linear-gradient(145deg, #8ec5fc 0%, #c3daf5 55%, #ffe8a3 100%);
+      color: #1e3a5f;
+    }
+
+    html[data-theme="light"] .day-banner.weather-cloudy {
+      background: linear-gradient(145deg, #b8c4d0 0%, #d5dde6 100%);
+      color: #2f3f4f;
+    }
+
+    html[data-theme="light"] .day-banner.weather-rain {
+      background: linear-gradient(145deg, #7a8fa3 0%, #9eb3c4 100%);
+      color: #fff;
+    }
+
+    html[data-theme="light"] .day-banner.weather-storm {
+      background: linear-gradient(145deg, #4b5568 0%, #6b5b7a 100%);
+      color: #fff;
+    }
+
+    html[data-theme="light"] .day-banner.weather-night {
+      background: linear-gradient(145deg, #2a3558 0%, #46548a 100%);
+      color: #eef2ff;
+    }
+
+    html[data-theme="light"] .day-banner.weather-snow {
+      background: linear-gradient(145deg, #edf4fc 0%, #f7fbff 100%);
+      color: #334155;
+    }
+
+    .day-banner:not(.weather-neutral) #datetime {
+      color: inherit;
+      opacity: 0.88;
+    }
 
     .icon-btn, .tab, .switch, .back, .choice, .chip, .text-btn, .primary {
       font: inherit;
@@ -705,11 +828,16 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h11l-2.5-2.5M17 17H6l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </header>
-    <div class="day-banner" aria-label="Fecha y clima">
-      <p id="datetime">Conectando…</p>
-      <div class="weather-pill is-hidden" id="weather-pill" aria-hidden="true">
-        <span class="weather-icon" id="weather-icon"></span>
-        <span class="weather-temp" id="weather-temp"></span>
+    <div class="day-banner weather-neutral" id="day-banner" aria-label="Fecha y clima">
+      <div class="weather-banner-main">
+        <span class="weather-emoji is-hidden" id="weather-emoji" aria-hidden="true"></span>
+        <div class="weather-banner-copy">
+          <p id="datetime">Conectando…</p>
+          <p class="weather-label" id="weather-label"></p>
+        </div>
+      </div>
+      <div class="weather-banner-temp is-hidden" id="weather-temp-wrap" aria-hidden="true">
+        <span id="weather-temp"></span>
       </div>
     </div>
     <p id="status" class="status" role="status"></p>
@@ -1830,7 +1958,8 @@ async function saveAlternate() {
   }
 }
 
-const WEATHER_CACHE_KEY = 'homeWeatherV1';
+const WEATHER_CACHE_KEY = 'homeWeatherV2';
+const WEATHER_MOODS = ['neutral', 'sunny', 'partly', 'cloudy', 'rain', 'storm', 'night', 'snow'];
 const WEATHER_FETCH_MS = 30 * 60 * 1000;
 const WEATHER_CACHE_MAX_MS = 2 * 60 * 60 * 1000;
 let weatherLat = null;
@@ -1855,27 +1984,58 @@ function updateDateTimeFromClock(clock) {
     DIAS[date.getDay()] + ', ' + date.getDate() + ' de ' + MESES[date.getMonth()];
 }
 
-function weatherIcon(kind, isDay) {
-  if (kind === 'clear' && isDay) return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>';
-  if (kind === 'clear') return '<svg viewBox="0 0 24 24"><path d="M15 5a6 6 0 1 0 6 8 5 5 0 0 1-8 6H8a5 5 0 0 1 0-10 6 6 0 0 1 7-4z" fill="currentColor"/></svg>';
-  if (kind === 'rain') return '<svg viewBox="0 0 24 24"><path d="M7 15a5 5 0 0 1 0-10 6 6 0 0 1 11 2 4 4 0 0 1 0 8z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 18l-1 2M13 18l-1 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-  return '<svg viewBox="0 0 24 24"><path d="M7 16a5 5 0 0 1 0-10 6 6 0 0 1 11 2 4 4 0 0 1 0 8z" fill="currentColor"/></svg>';
+function weatherPresentation(code, isDay) {
+  const c = +code || 0;
+  if (c >= 95) return { mood: 'storm', emoji: '⛈️', label: 'Tormenta eléctrica' };
+  if (c >= 71 && c <= 77) return { mood: 'snow', emoji: '❄️', label: 'Nieve' };
+  if (c >= 85 && c <= 86) return { mood: 'snow', emoji: '🌨️', label: 'Nevada' };
+  if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return { mood: 'rain', emoji: '🌧️', label: 'Lluvia' };
+  if (c >= 51 && c <= 57) return { mood: 'rain', emoji: '🌦️', label: 'Llovizna' };
+  if (c === 45 || c === 48) return { mood: 'cloudy', emoji: '🌫️', label: 'Niebla' };
+  if (c === 0) {
+    return isDay
+      ? { mood: 'sunny', emoji: '☀️', label: 'Despejado' }
+      : { mood: 'night', emoji: '🌙', label: 'Noche despejada' };
+  }
+  if (c === 1) {
+    return isDay
+      ? { mood: 'partly', emoji: '🌤️', label: 'Mayormente despejado' }
+      : { mood: 'night', emoji: '🌙', label: 'Noche clara' };
+  }
+  if (c === 2) return { mood: 'partly', emoji: '⛅', label: 'Parcialmente nublado' };
+  if (c === 3) return { mood: 'cloudy', emoji: '☁️', label: 'Nublado' };
+  if (!isDay) return { mood: 'night', emoji: '☁️', label: 'Noche nublada' };
+  return { mood: 'cloudy', emoji: '☁️', label: 'Nublado' };
+}
+
+function applyWeatherBannerMood(mood) {
+  const banner = document.getElementById('day-banner');
+  if (!banner) return;
+  WEATHER_MOODS.forEach((name) => banner.classList.toggle('weather-' + name, name === mood));
 }
 
 function renderWeather(data) {
-  const pill = document.getElementById('weather-pill');
+  const emojiEl = document.getElementById('weather-emoji');
+  const labelEl = document.getElementById('weather-label');
+  const tempWrap = document.getElementById('weather-temp-wrap');
   if (!data || data.temp == null) {
-    pill.classList.add('is-hidden');
-    pill.setAttribute('aria-hidden', 'true');
+    applyWeatherBannerMood('neutral');
+    emojiEl.classList.add('is-hidden');
+    emojiEl.textContent = '';
+    labelEl.textContent = '';
+    tempWrap.classList.add('is-hidden');
+    tempWrap.setAttribute('aria-hidden', 'true');
     return;
   }
   const isDay = data.isDay != null ? !!data.isDay : (new Date().getHours() >= 7 && new Date().getHours() < 19);
-  const code = +data.code || 0;
-  const kind = code <= 1 ? 'clear' : ((code >= 51 && code <= 67) || code >= 80 ? 'rain' : 'cloud');
-  document.getElementById('weather-icon').innerHTML = weatherIcon(kind, isDay);
+  const view = weatherPresentation(data.code, isDay);
+  applyWeatherBannerMood(view.mood);
+  emojiEl.textContent = view.emoji;
+  emojiEl.classList.remove('is-hidden');
+  labelEl.textContent = view.label;
   document.getElementById('weather-temp').textContent = Math.round(+data.temp) + '°';
-  pill.classList.remove('is-hidden');
-  pill.setAttribute('aria-hidden', 'false');
+  tempWrap.classList.remove('is-hidden');
+  tempWrap.setAttribute('aria-hidden', 'false');
 }
 
 function readWeatherCache() {
