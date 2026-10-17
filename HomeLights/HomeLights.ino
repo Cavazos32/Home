@@ -68,7 +68,7 @@ void handleState() {
   fillZoneJson(doc["cuna"].to<JsonObject>(), lights.zone(ZONE_CUNA));
   fillZoneJson(doc["setup"].to<JsonObject>(), lights.zone(ZONE_SETUP));
 
-  lights.routinesToJson(doc);
+  lights.routinesToJson(doc, false);
 
   lights.alternateToJson(doc["alternate"].to<JsonObject>());
 
@@ -137,6 +137,17 @@ void handleSchedule() {
   lights.schedulesToJson(outDoc["schedules"].to<JsonArray>());
   String out;
   serializeJson(outDoc, out);
+  sendJson(200, out);
+}
+
+void handleRoutinesGet() {
+  JsonDocument doc;
+  lights.routinesToJson(doc, true);
+  String out;
+  if (!serializeDocToString(doc, out)) {
+    sendJson(500, "{\"error\":\"state json overflow\"}");
+    return;
+  }
   sendJson(200, out);
 }
 
@@ -370,7 +381,12 @@ void handleOtaCheck() {
 }
 
 void connectWiFi() {
+  WiFi.persistent(true);
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
+  WiFi.setAutoReconnect(true);
+  WiFi.disconnect(false, false);
+  delay(100);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.printf("Conectando a %s", WIFI_SSID);
   uint32_t start = millis();
@@ -382,6 +398,7 @@ void connectWiFi() {
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi: timeout.");
+    deviceIp = "";
     return;
   }
 
@@ -389,6 +406,29 @@ void connectWiFi() {
   Serial.println("WiFi OK");
   Serial.print("Panel web: http://");
   Serial.println(deviceIp);
+}
+
+static void maintainWiFi() {
+  static uint32_t lastAttemptMs = 0;
+  static uint8_t reconnectFailures = 0;
+  if (WiFi.status() == WL_CONNECTED) {
+    reconnectFailures = 0;
+    const String ip = WiFi.localIP().toString();
+    if (ip.length() > 0) deviceIp = ip;
+    return;
+  }
+  const uint32_t now = millis();
+  if (now - lastAttemptMs < 8000) return;
+  lastAttemptMs = now;
+  reconnectFailures++;
+  if (reconnectFailures >= 3) {
+    WiFi.disconnect(false, false);
+    delay(100);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    reconnectFailures = 0;
+  } else {
+    WiFi.reconnect();
+  }
 }
 
 void setupOta() {
@@ -415,9 +455,9 @@ void setupOta() {
 
 void setup() {
   Serial.begin(115200);
-  lights.begin();
-
+  delay(300);
   connectWiFi();
+  lights.begin();
 
   if (WiFi.status() == WL_CONNECTED) {
     lights.startClock();
@@ -435,6 +475,7 @@ void setup() {
   server.on("/api/command", HTTP_OPTIONS, handleApiOptions);
   server.on("/api/schedule", HTTP_POST, handleSchedule);
   server.on("/api/schedule", HTTP_OPTIONS, handleApiOptions);
+  server.on("/api/routines", HTTP_GET, handleRoutinesGet);
   server.on("/api/routines", HTTP_POST, handleRoutines);
   server.on("/api/routines", HTTP_OPTIONS, handleApiOptions);
   server.on("/api/settings", HTTP_POST, handleSettings);
@@ -452,6 +493,7 @@ void setup() {
 }
 
 void loop() {
+  maintainWiFi();
   lights.update();
   server.handleClient();
   ArduinoOTA.handle();

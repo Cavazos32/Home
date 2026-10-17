@@ -1,5 +1,7 @@
 #include "LightController.h"
 
+#include <Preferences.h>
+
 #include <cmath>
 #include <cstring>
 
@@ -146,10 +148,12 @@ void LightZone::updateFade() {
 // --- Impl interno (ajustes, rutinas, horarios, alternado) ---------------------
 
 struct LightController::Impl {
+  Preferences prefs;
+
   class SettingsStore {
    public:
-    void begin() {
-      prefs_.begin(kPrefsNs, false);
+    void begin(Preferences& prefs) {
+      prefs_ = &prefs;
       loadFromNvs();
     }
 
@@ -207,31 +211,33 @@ struct LightController::Impl {
     }
 
     void loadFromNvs() {
-      data_.fadeOnMs = prefs_.getUInt("fadeOn", FADE_ON_MS);
-      data_.fadeOffMs = prefs_.getUInt("fadeOff", FADE_OFF_MS);
-      data_.fadeGamma = prefs_.getFloat("gamma", FADE_GAMMA);
+      if (!prefs_) return;
+      data_.fadeOnMs = prefs_->getUInt("fadeOn", FADE_ON_MS);
+      data_.fadeOffMs = prefs_->getUInt("fadeOff", FADE_OFF_MS);
+      data_.fadeGamma = prefs_->getFloat("gamma", FADE_GAMMA);
       data_.defaultOnLevel =
-          prefs_.getUChar("defOn", static_cast<uint8_t>(DEFAULT_ON_LEVEL));
+          prefs_->getUChar("defOn", static_cast<uint8_t>(DEFAULT_ON_LEVEL));
       clampInPlace();
     }
 
     void saveToNvs() {
-      prefs_.putUInt("fadeOn", data_.fadeOnMs);
-      prefs_.putUInt("fadeOff", data_.fadeOffMs);
-      prefs_.putFloat("gamma", data_.fadeGamma);
-      prefs_.putUChar("defOn", data_.defaultOnLevel);
+      if (!prefs_) return;
+      prefs_->putUInt("fadeOn", data_.fadeOnMs);
+      prefs_->putUInt("fadeOff", data_.fadeOffMs);
+      prefs_->putFloat("gamma", data_.fadeGamma);
+      prefs_->putUChar("defOn", data_.defaultOnLevel);
     }
 
     LightSettings data_;
-    Preferences prefs_;
+    Preferences* prefs_ = nullptr;
   };
 
   class AlternateMode {
    public:
-    void begin() {
-      prefs_.begin(kPrefsNs, false);
-      periodMs_ = prefs_.getUInt("altPeriod", 700);
-      level_ = prefs_.getUChar("altLevel", 80);
+    void begin(Preferences& prefs) {
+      prefs_ = &prefs;
+      periodMs_ = prefs_->getUInt("altPeriod", 700);
+      level_ = prefs_->getUChar("altLevel", 80);
       if (periodMs_ > 5000) periodMs_ = 5000;
       if (level_ > 100) level_ = 100;
       enabled_ = false;
@@ -281,11 +287,12 @@ struct LightController::Impl {
     }
 
     void saveConfig() {
-      prefs_.putUInt("altPeriod", periodMs_);
-      prefs_.putUChar("altLevel", level_);
+      if (!prefs_) return;
+      prefs_->putUInt("altPeriod", periodMs_);
+      prefs_->putUChar("altLevel", level_);
     }
 
-    Preferences prefs_;
+    Preferences* prefs_ = nullptr;
     bool enabled_ = false;
     bool phaseSetupOn_ = false;
     uint32_t periodMs_ = 700;
@@ -295,8 +302,8 @@ struct LightController::Impl {
 
   class RoutineManager {
    public:
-    void begin() {
-      prefs_.begin(kPrefsNs, false);
+    void begin(Preferences& prefs) {
+      prefs_ = &prefs;
       loadFromNvs();
     }
 
@@ -403,6 +410,19 @@ struct LightController::Impl {
     void listJson(JsonArray arr) const {
       for (uint8_t i = 1; i < defCount_; ++i) {
         appendDefJson(arr, defs_[i], active_ == i);
+      }
+    }
+
+    void listRuntimeJson(JsonArray arr) const {
+      for (uint8_t i = 1; i < defCount_; ++i) {
+        const RoutineDef& def = defs_[i];
+        const bool mine = active_ == i;
+        JsonObject o = arr.add<JsonObject>();
+        o["id"] = def.id;
+        o["label"] = def.label;
+        o["active"] = mine;
+        o["state"] = mine ? stateName() : "idle";
+        o["step"] = mine ? stepName() : "idle";
       }
     }
 
@@ -570,26 +590,35 @@ struct LightController::Impl {
 
     void loadFromNvs() {
       seedDefaults();
-      size_t len = prefs_.getBytesLength("routineDefs");
+      if (!prefs_) return;
+      size_t len = prefs_->getBytesLength("routineDefs");
       if (len == 0 || len % sizeof(RoutineDef) != 0) return;
       size_t n = len / sizeof(RoutineDef);
       if (n == 0 || n > MAX_ROUTINE_GROUPS - 1) return;
       RoutineDef loaded[MAX_ROUTINE_GROUPS];
-      prefs_.getBytes("routineDefs", loaded, len);
+      prefs_->getBytes("routineDefs", loaded, len);
       defCount_ = static_cast<uint8_t>(n + 1);
       for (size_t i = 0; i < n; ++i) {
+        loaded[i].id[sizeof(loaded[i].id) - 1] = '\0';
+        loaded[i].label[sizeof(loaded[i].label) - 1] = '\0';
         if (!validSlug(loaded[i].id) || loaded[i].stepCount == 0 ||
             loaded[i].stepCount > MAX_ROUTINE_STEPS) {
           seedDefaults();
           return;
+        }
+        for (uint8_t s = 0; s < loaded[i].stepCount; ++s) {
+          if (loaded[i].steps[s].zone > ZONE_SETUP || loaded[i].steps[s].level > 100) {
+            seedDefaults();
+            return;
+          }
         }
         defs_[i + 1] = loaded[i];
       }
     }
 
     void saveToNvs() {
-      if (defCount_ <= 1) return;
-      prefs_.putBytes("routineDefs", &defs_[1], (defCount_ - 1) * sizeof(RoutineDef));
+      if (!prefs_ || defCount_ <= 1) return;
+      prefs_->putBytes("routineDefs", &defs_[1], (defCount_ - 1) * sizeof(RoutineDef));
     }
 
     RoutineDef defs_[MAX_ROUTINE_GROUPS];
@@ -601,7 +630,7 @@ struct LightController::Impl {
     uint32_t stepWaitUntilMs_ = 0;
     LightZoneId stepZone_ = ZONE_CUNA;
     const LightSettings* settings_ = nullptr;
-    Preferences prefs_;
+    Preferences* prefs_ = nullptr;
   };
 
   enum ScheduleZone : uint8_t {
@@ -627,8 +656,8 @@ struct LightController::Impl {
 
   class ScheduleManager {
    public:
-    void begin() {
-      prefs_.begin(kPrefsNs, false);
+    void begin(Preferences& prefs) {
+      prefs_ = &prefs;
       loadFromNvs();
     }
 
@@ -777,25 +806,27 @@ struct LightController::Impl {
 
     void loadFromNvs() {
       count_ = 0;
-      size_t len = prefs_.getBytesLength("schedules");
+      if (!prefs_) return;
+      size_t len = prefs_->getBytesLength("schedules");
       if (len == 0 || len % sizeof(ScheduleEntry) != 0) return;
       size_t n = len / sizeof(ScheduleEntry);
       if (n > MAX_SCHEDULES) n = MAX_SCHEDULES;
-      prefs_.getBytes("schedules", entries_, n * sizeof(ScheduleEntry));
+      prefs_->getBytes("schedules", entries_, n * sizeof(ScheduleEntry));
       count_ = n;
     }
 
     void saveToNvs() {
+      if (!prefs_) return;
       if (count_ == 0) {
-        prefs_.remove("schedules");
+        prefs_->remove("schedules");
         return;
       }
-      prefs_.putBytes("schedules", entries_, count_ * sizeof(ScheduleEntry));
+      prefs_->putBytes("schedules", entries_, count_ * sizeof(ScheduleEntry));
     }
 
     ScheduleEntry entries_[MAX_SCHEDULES];
     size_t count_ = 0;
-    Preferences prefs_;
+    Preferences* prefs_ = nullptr;
     bool timeSynced_ = false;
     int lastCheckedDayMinuteKey_ = -1;
   };
@@ -814,15 +845,16 @@ LightController::LightController()
 LightController::~LightController() { delete impl_; }
 
 void LightController::begin() {
-  impl_->settings.begin();
+  impl_->prefs.begin(kPrefsNs, false);
+  impl_->settings.begin(impl_->prefs);
   const LightSettings* cfg = &impl_->settings.get();
   for (auto& z : zones_) {
     z.bindSettings(cfg);
   }
   impl_->routines.bindSettings(cfg);
-  impl_->routines.begin();
-  impl_->alternate.begin();
-  impl_->schedules.begin();
+  impl_->routines.begin(impl_->prefs);
+  impl_->alternate.begin(impl_->prefs);
+  impl_->schedules.begin(impl_->prefs);
   for (auto& z : zones_) {
     z.begin();
   }
@@ -940,10 +972,15 @@ const char* LightController::routineStateName() const { return impl_->routines.s
 
 const char* LightController::routineStepName() const { return impl_->routines.stepName(); }
 
-void LightController::routinesToJson(JsonDocument& doc) const {
+void LightController::routinesToJson(JsonDocument& doc, bool includeRoutineConfig) const {
   impl_->routines.legacyGroupJson(doc["group"].to<JsonObject>());
   impl_->routines.summaryJson(doc["routine"].to<JsonObject>());
-  impl_->routines.listJson(doc["routines"].to<JsonArray>());
+  JsonArray routines = doc["routines"].to<JsonArray>();
+  if (includeRoutineConfig) {
+    impl_->routines.listJson(routines);
+  } else {
+    impl_->routines.listRuntimeJson(routines);
+  }
 }
 
 void LightController::setAlternateEnabled(bool enabled) {

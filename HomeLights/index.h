@@ -260,21 +260,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .tile-extra[hidden] { display: none; }
     .tile-extra .field-label { margin: 0 0 0.35rem; }
 
-    .group-actions {
-      display: flex;
-      gap: 0.5rem;
-      padding: 0 var(--pad) 1rem;
-    }
-
-    .group-actions .ghost {
-      flex: 1;
-      min-height: 44px;
-      border-radius: 14px;
-      border: 1px solid var(--card-border);
-      background: var(--card);
-      color: inherit;
-      font-weight: 600;
-    }
+    .group-actions-row { padding-bottom: 1rem; }
 
     .group-sheet {
       position: fixed;
@@ -282,34 +268,65 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       z-index: 40;
       background: var(--bg);
       overflow-y: auto;
-      padding: 0 0 6rem;
+      padding: 0 var(--pad) 6rem;
+    }
+
+    .group-sheet .panel + .panel { margin-top: 0.85rem; }
+
+    .group-step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      padding: 0 var(--pad) var(--pad);
     }
 
     .step-row {
-      border: 1px solid var(--card-border);
-      border-radius: 16px;
-      padding: 0.75rem var(--pad);
-      margin-bottom: 0.6rem;
-      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 0.85rem 0.85rem 0.15rem;
+      background: var(--field);
     }
 
     .step-row-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 0.5rem;
-      font-size: 0.85rem;
+      gap: 0.5rem;
+      margin-bottom: 0.35rem;
+      font-size: 0.9rem;
       font-weight: 650;
     }
 
-    .step-row-actions { display: flex; gap: 0.35rem; }
+    .step-row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--gap);
+      padding: 0;
+    }
 
-    .step-row-actions button {
-      border: 0;
-      background: transparent;
-      color: var(--muted);
-      font-size: 1.1rem;
-      padding: 0.15rem 0.35rem;
+    .step-row-actions .chip {
+      flex: 0 0 auto;
+      min-width: 2.75rem;
+      padding: 0.45rem 0.55rem;
+      font-size: 0.88rem;
+    }
+
+    .step-row .field-label {
+      margin: 0.75rem 0 0.35rem;
+    }
+
+    .step-row .field-label:first-of-type {
+      margin-top: 0.55rem;
+    }
+
+    .step-row .chips {
+      padding: 0;
+    }
+
+    .step-row .field {
+      width: 100%;
+      max-width: none;
+      margin: 0 0 0.85rem;
     }
     .hint { margin: 0; font-size: 0.82rem; opacity: 0.8; }
 
@@ -574,8 +591,8 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
       <h2 class="section-label">Grupos</h2>
       <div id="group-list"></div>
-      <div class="group-actions">
-        <button class="ghost" type="button" id="add-group">Crear grupo</button>
+      <div class="row group-actions-row">
+        <button class="text-btn" type="button" id="add-group">Crear grupo</button>
       </div>
     </section>
 
@@ -583,18 +600,30 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       <div class="panel">
         <button class="back" type="button" id="close-group-sheet">‹ Inicio</button>
         <h2 class="subhead" id="group-sheet-title">Grupo</h2>
-        <p class="help">Define el orden, la intensidad de cada zona y la pausa antes de cada paso (ms). El atajo HTTP usa el identificador en minúsculas.</p>
+        <p class="help">Orden e intensidad de cada zona. El atajo HTTP usa el identificador en minúsculas.</p>
         <label class="field-label" for="grp-label">Nombre</label>
         <input class="field" id="grp-label" type="text" maxlength="31" required>
         <label class="field-label" for="grp-id">Identificador (atajos / API)</label>
         <input class="field" id="grp-id" type="text" pattern="[a-z][a-z0-9_]{0,14}" maxlength="15" required>
-        <label class="field-label" for="grp-next">Avanzar al siguiente paso (% del fade)</label>
-        <input class="field" id="grp-next" type="number" min="5" max="100" step="1" value="70">
-        <p class="field-label">Pasos</p>
-        <div id="grp-steps"></div>
-        <div class="row"><button type="button" id="grp-add-step">Agregar paso</button></div>
+        <label class="field-label" for="grp-next">Solapamiento entre pasos</label>
+        <p class="help">Cuando el fade del paso actual llega a este porcentaje, empieza el siguiente.</p>
+        <div class="chips" id="grp-next-chips" role="radiogroup" aria-label="Solapamiento">
+          <button class="chip" type="button" data-grp-next="50" aria-pressed="false">50%</button>
+          <button class="chip" type="button" data-grp-next="70" aria-pressed="true">70%</button>
+          <button class="chip" type="button" data-grp-next="85" aria-pressed="false">85%</button>
+          <button class="chip" type="button" data-grp-next="custom" aria-pressed="false">Otro</button>
+        </div>
+        <input class="field" id="grp-next" type="number" min="5" max="100" step="1" value="70" hidden>
+      </div>
+      <div class="panel">
+        <h2 class="subhead">Secuencia</h2>
+        <p class="help">Los pasos se ejecutan en orden. Usa las flechas para reordenar.</p>
+        <div id="grp-steps" class="group-step-list"></div>
+        <div class="row"><button class="text-btn" type="button" id="grp-add-step">Agregar paso</button></div>
+      </div>
+      <div class="panel">
         <div class="row"><button class="primary" type="button" id="save-group">Guardar grupo</button></div>
-        <div class="row"><button type="button" id="delete-group" hidden>Eliminar grupo</button></div>
+        <div class="row"><button class="text-btn danger" type="button" id="delete-group" hidden>Eliminar grupo</button></div>
       </div>
     </section>
 
@@ -971,11 +1000,7 @@ function acceptZone(zone, server) {
 }
 
 function groupPlanText(g) {
-  return g.steps.map((step) => {
-    let line = ZONE_LABEL[step.zone] + ' ' + step.level + '%';
-    if (+step.delayMs > 0) line += ' (+' + step.delayMs + ' ms)';
-    return line;
-  }).join(' → ');
+  return g.steps.map((step) => ZONE_LABEL[step.zone] + ' ' + step.level + '%').join(' → ');
 }
 
 function routineText(id) {
@@ -1007,25 +1032,40 @@ function parseGroupSteps(arr) {
 function applyRoutinesFromServer(s) {
   if (Array.isArray(s.routines)) {
     routinesSupported = true;
-    if (Date.now() >= groupsQuietUntil) {
+    const fullConfig = s.routines.some((item) => Array.isArray(item.steps) && item.steps.length > 0);
+    const mergeConfig = fullConfig && Date.now() >= groupsQuietUntil;
+
+    if (mergeConfig) {
       const order = [];
       s.routines.forEach((item) => {
         if (!item.id) return;
         order.push(item.id);
-        const prev = groups[item.id] || { state: 'idle', step: 'idle' };
+        const prev = groups[item.id] || { state: 'idle', step: 'idle', steps: [] };
+        const parsed = parseGroupSteps(item.steps);
         groups[item.id] = {
           label: item.label || prev.label || item.id,
           state: item.state === 'running' || item.state === 'completed' ? item.state : 'idle',
           step: item.state === 'running' ? (item.step || 'idle') : 'idle',
           nextStepAt: Number.isFinite(+item.nextStepAt) ? +item.nextStepAt : (prev.nextStepAt || 0.7),
-          steps: parseGroupSteps(item.steps).length ? parseGroupSteps(item.steps) : (prev.steps || [])
+          steps: parsed.length ? parsed : (prev.steps || [])
         };
       });
-      groupOrder = order.length ? order : groupOrder;
+      if (order.length) groupOrder = order;
     } else {
       s.routines.forEach((item) => {
+        if (!item.id) return;
+        if (!groups[item.id]) {
+          groups[item.id] = {
+            label: item.label || item.id,
+            state: 'idle',
+            step: 'idle',
+            nextStepAt: 0.7,
+            steps: [{ zone: 'cuna', level: 50, delayMs: 0 }]
+          };
+          groupOrder.push(item.id);
+        }
         const r = groups[item.id];
-        if (!r) return;
+        if (item.label) r.label = item.label;
         r.state = item.state === 'running' || item.state === 'completed' ? item.state : 'idle';
         r.step = r.state === 'running' ? (item.step || 'idle') : 'idle';
       });
@@ -1077,6 +1117,23 @@ function slugifyGroupId(text) {
     .slice(0, 15) || 'grupo';
 }
 
+function syncGroupNextChips(pct) {
+  const rounded = Math.round(pct);
+  const presets = [50, 70, 85];
+  const match = presets.find((p) => p === rounded);
+  document.getElementById('grp-next').value = String(rounded);
+  const custom = document.getElementById('grp-next');
+  custom.hidden = !!match;
+  document.querySelectorAll('#grp-next-chips .chip').forEach((chip) => {
+    const val = chip.dataset.grpNext;
+    if (val === 'custom') {
+      chip.setAttribute('aria-pressed', String(!match));
+    } else {
+      chip.setAttribute('aria-pressed', String(+val === rounded));
+    }
+  });
+}
+
 function openGroupEditor(id) {
   editingGroupId = id;
   const g = groups[id];
@@ -1084,7 +1141,7 @@ function openGroupEditor(id) {
   document.getElementById('grp-label').value = g ? g.label : '';
   document.getElementById('grp-id').value = id;
   document.getElementById('grp-id').readOnly = id === 'habitacion' || id === 'baby';
-  document.getElementById('grp-next').value = String(Math.round((g ? g.nextStepAt : 0.7) * 100));
+  syncGroupNextChips((g ? g.nextStepAt : 0.7) * 100);
   document.getElementById('delete-group').hidden = !g || id === 'habitacion' || id === 'baby';
   renderGroupStepEditor(g ? g.steps : [{ zone: 'cuna', level: 50, delayMs: 0 }]);
   document.getElementById('group-sheet').hidden = false;
@@ -1099,21 +1156,20 @@ function renderGroupStepEditor(steps) {
   const root = document.getElementById('grp-steps');
   root.innerHTML = steps.map((step, i) => {
     const zone = step.zone === 'setup' ? 'setup' : 'cuna';
-    return '<div class="step-row" data-step="' + i + '">' +
+    const level = Math.max(0, Math.min(100, Math.round(+step.level) || 0));
+    return '<article class="step-row" data-step="' + i + '">' +
       '<div class="step-row-head"><span>Paso ' + (i + 1) + '</span>' +
-      '<div class="step-row-actions">' +
-      '<button type="button" data-step-up="' + i + '" aria-label="Subir">↑</button>' +
-      '<button type="button" data-step-down="' + i + '" aria-label="Bajar">↓</button>' +
-      '<button type="button" data-step-del="' + i + '" aria-label="Quitar">×</button></div></div>' +
+      '<div class="step-row-actions chips" role="toolbar" aria-label="Orden del paso">' +
+      '<button class="chip" type="button" data-step-up="' + i + '" aria-label="Subir paso">↑</button>' +
+      '<button class="chip" type="button" data-step-down="' + i + '" aria-label="Bajar paso">↓</button>' +
+      '<button class="chip" type="button" data-step-del="' + i + '" aria-label="Quitar paso">×</button></div></div>' +
       '<p class="field-label">Zona</p>' +
-      '<div class="chips" role="radiogroup">' +
+      '<div class="chips" role="radiogroup" aria-label="Zona del paso ' + (i + 1) + '">' +
       '<button class="chip" type="button" data-step-zone="' + i + '" data-value="cuna" aria-pressed="' + (zone === 'cuna') + '">Cunero</button>' +
       '<button class="chip" type="button" data-step-zone="' + i + '" data-value="setup" aria-pressed="' + (zone === 'setup') + '">Setup</button></div>' +
-      '<label class="field-label" for="step-level-' + i + '">Intensidad (%)</label>' +
-      '<input class="field" id="step-level-' + i + '" type="number" min="0" max="100" value="' + step.level + '">' +
-      '<label class="field-label" for="step-delay-' + i + '">Pausa antes de este paso (ms)</label>' +
-      '<input class="field" id="step-delay-' + i + '" type="number" min="0" max="600000" step="100" value="' + (step.delayMs || 0) + '">' +
-      '</div>';
+      '<label class="field-label" for="step-level-' + i + '">Intensidad</label>' +
+      '<input class="field" id="step-level-' + i + '" type="number" min="0" max="100" value="' + level + '" inputmode="numeric">' +
+      '</article>';
   }).join('');
 }
 
@@ -1124,11 +1180,10 @@ function readGroupStepsFromEditor() {
     const zoneBtn = row.querySelector('.chip[aria-pressed="true"]');
     const zone = zoneBtn && zoneBtn.dataset.value === 'setup' ? 'setup' : 'cuna';
     const level = +document.getElementById('step-level-' + i).value;
-    const delayMs = +document.getElementById('step-delay-' + i).value;
     steps.push({
       zone,
       level: Math.round(level),
-      delayMs: Math.max(0, Math.min(600000, Math.round(delayMs)))
+      delayMs: 0
     });
   });
   return steps;
@@ -1181,6 +1236,7 @@ async function saveGroupEditor() {
   try {
     await api('/api/routines', { routines: groupsPayload() });
     groupsQuietUntil = Date.now() + 3000;
+    groupConfigLoaded = true;
     closeGroupEditor();
     setStatus('Grupo guardado');
     poll();
@@ -1582,6 +1638,18 @@ function applyStateFromPoll(s, token, gen) {
 }
 
 let liveError = '';
+let groupConfigLoaded = false;
+
+async function refreshGroupConfig(force) {
+  if (groupConfigLoaded && !force) return;
+  try {
+    applyRoutinesFromServer(await api('/api/routines'));
+    groupConfigLoaded = true;
+    paint();
+  } catch (e) {
+    if (!groupConfigLoaded && !liveError) setStatus(e.message);
+  }
+}
 
 async function poll() {
   if (pollRunning) {
@@ -1593,6 +1661,7 @@ async function poll() {
   const gen = routineGen;
   try {
     applyStateFromPoll(await api('/api/state'), token, gen);
+    if (!groupConfigLoaded) refreshGroupConfig();
     if (liveError) {
       liveError = '';
       setStatus('');
@@ -1676,8 +1745,25 @@ document.getElementById('grp-add-step').addEventListener('click', () => {
     setStatus('Máximo ' + MAX_GROUP_STEPS + ' pasos');
     return;
   }
-  steps.push({ zone: 'setup', level: 50, delayMs: 500 });
+  steps.push({ zone: 'setup', level: 50, delayMs: 0 });
   renderGroupStepEditor(steps);
+});
+document.getElementById('grp-next-chips').addEventListener('click', (event) => {
+  const chip = event.target.closest('[data-grp-next]');
+  if (!chip) return;
+  const val = chip.dataset.grpNext;
+  if (val === 'custom') {
+    document.querySelectorAll('#grp-next-chips .chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
+    chip.setAttribute('aria-pressed', 'true');
+    const input = document.getElementById('grp-next');
+    input.hidden = false;
+    input.focus();
+    return;
+  }
+  syncGroupNextChips(+val);
+});
+document.getElementById('grp-next').addEventListener('input', () => {
+  syncGroupNextChips(+document.getElementById('grp-next').value);
 });
 document.getElementById('grp-steps').addEventListener('click', (event) => {
   const zoneBtn = event.target.closest('[data-step-zone]');

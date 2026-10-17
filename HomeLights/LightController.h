@@ -111,7 +111,7 @@ class LightController {
   RoutineId routineActiveId() const;
   const char* routineStateName() const;
   const char* routineStepName() const;
-  void routinesToJson(JsonDocument& doc) const;
+  void routinesToJson(JsonDocument& doc, bool includeRoutineConfig = true) const;
 
   void setAlternateEnabled(bool enabled);
   bool alternateEnabled() const;
