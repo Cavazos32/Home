@@ -10,7 +10,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" id="meta-theme-color" content="#141210">
+  <meta name="theme-color" id="meta-theme-color" content="#1f1613">
   <title>Home</title>
   <script>
     (function () {
@@ -24,25 +24,33 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches));
       document.documentElement.dataset.themePref = pref;
       document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-      document.getElementById('meta-theme-color').content = dark ? '#141210' : '#f3eee7';
+      document.getElementById('meta-theme-color').content = dark ? '#1f1613' : '#f5ede6';
     })();
   </script>
   <style>
     :root {
-      --text: #f6f1e8;
-      --muted: rgba(246, 241, 232, 0.58);
-      --bg: #141210;
-      --card: #2a2723;
-      --card-border: rgba(255, 255, 255, 0.06);
-      --cuna-on: #e4b15a;
-      --setup-on: #efe6d4;
-      --group-on: #f0c56e;
-      --on-text: #2a2114;
-      --nav: rgba(20, 18, 16, 0.92);
-      --field: rgba(0, 0, 0, 0.28);
-      --line: rgba(255, 255, 255, 0.08);
-      --accent: #e4b15a;
-      --switch-off: #4a4642;
+      --walnut-deep: #2e1f1b;
+      --walnut-mid: #5e4b43;
+      --walnut-soft: #7a655c;
+      --text: #f3ebe3;
+      --muted: rgba(243, 235, 227, 0.58);
+      --bg: #1f1613;
+      --bg-spot: rgba(94, 75, 67, 0.22);
+      --card: linear-gradient(135deg, var(--walnut-deep) 0%, var(--walnut-mid) 100%);
+      --card-solid: #3d2e28;
+      --card-border: rgba(255, 255, 255, 0.1);
+      --surface-shadow: 0 14px 32px rgba(0, 0, 0, 0.38);
+      --surface-inset: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      --cuna-on: linear-gradient(135deg, #6b5348 0%, #9a7b6a 100%);
+      --setup-on: linear-gradient(135deg, #5e4b43 0%, #8a7468 100%);
+      --group-on: linear-gradient(135deg, #7a5a42 0%, #b0896a 100%);
+      --on-text: #f8f0e8;
+      --nav: rgba(31, 22, 19, 0.94);
+      --field: rgba(0, 0, 0, 0.22);
+      --line: rgba(255, 255, 255, 0.1);
+      --accent: #c4a484;
+      --switch-off: #4a3b35;
+      --pill-radius: 999px;
       --pad: 1rem;
       --gap: 0.5rem;
       --tabbar-h: 64px;
@@ -50,20 +58,27 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     }
 
     html[data-theme="light"] {
-      --text: #1e1a16;
-      --muted: rgba(30, 26, 22, 0.58);
-      --bg: #f3eee7;
-      --card: #fffdf9;
-      --card-border: rgba(40, 30, 16, 0.08);
-      --cuna-on: #e7b45c;
-      --setup-on: #d9e6f5;
-      --group-on: #f2d48a;
-      --on-text: #2a2114;
-      --nav: rgba(243, 238, 231, 0.94);
-      --field: #fff;
-      --line: rgba(40, 30, 16, 0.1);
-      --accent: #c8892d;
-      --switch-off: #d7d1c8;
+      --walnut-deep: #e8ddd4;
+      --walnut-mid: #d4c4b8;
+      --walnut-soft: #c9b8ab;
+      --text: #3d2f28;
+      --muted: rgba(61, 47, 40, 0.58);
+      --bg: #f5ede6;
+      --bg-spot: rgba(212, 196, 184, 0.45);
+      --card: linear-gradient(135deg, #faf4ee 0%, #e8ddd4 100%);
+      --card-solid: #f0e6dc;
+      --card-border: rgba(61, 47, 40, 0.1);
+      --surface-shadow: 0 12px 28px rgba(94, 75, 67, 0.14);
+      --surface-inset: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+      --cuna-on: linear-gradient(135deg, #eadfce 0%, #dcc9b8 100%);
+      --setup-on: linear-gradient(135deg, #e3d6c9 0%, #d2c0b0 100%);
+      --group-on: linear-gradient(135deg, #ecdcc8 0%, #d9c4a8 100%);
+      --on-text: #3d2f28;
+      --nav: rgba(245, 237, 230, 0.94);
+      --field: rgba(255, 255, 255, 0.72);
+      --line: rgba(61, 47, 40, 0.12);
+      --accent: #9a7358;
+      --switch-off: #cbbfb4;
       color-scheme: light;
     }
 
@@ -82,7 +97,9 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       min-height: 100dvh;
       font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
       color: var(--text);
-      background: var(--bg);
+      background:
+        radial-gradient(circle at 50% -10%, var(--bg-spot), transparent 55%),
+        var(--bg);
     }
 
     .app {
@@ -105,9 +122,10 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     h1 {
       margin: 0;
-      font-size: 2rem;
-      font-weight: 650;
-      letter-spacing: -0.03em;
+      font-size: 1.65rem;
+      font-weight: 400;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
     }
 
     .status {
@@ -126,19 +144,20 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       gap: 0.8rem;
       min-height: 62px;
       margin: 0.75rem 0 0.25rem;
-      padding: 0.85rem 1rem;
+      padding: 0.85rem 1.15rem;
       border: 1px solid var(--card-border);
-      border-radius: 18px;
-      background:
-        radial-gradient(circle at 100% 0, color-mix(in srgb, var(--accent) 22%, transparent), transparent 58%),
-        var(--card);
+      border-radius: var(--pill-radius);
+      background: var(--card);
+      box-shadow: var(--surface-shadow), var(--surface-inset);
     }
 
     #datetime {
       margin: 0;
-      font-size: 0.92rem;
-      font-weight: 650;
+      font-size: 0.82rem;
+      font-weight: 500;
       line-height: 1.35;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
     }
 
     .weather-pill {
@@ -146,11 +165,14 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       align-items: center;
       gap: 0.4rem;
       min-height: 34px;
-      padding: 0.25rem 0.65rem;
-      border-radius: 999px;
-      background: color-mix(in srgb, var(--accent) 16%, transparent);
-      font-size: 0.9rem;
-      font-weight: 700;
+      padding: 0.25rem 0.75rem;
+      border-radius: var(--pill-radius);
+      border: 1px solid var(--card-border);
+      background: color-mix(in srgb, var(--walnut-soft) 35%, transparent);
+      box-shadow: var(--surface-inset);
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
     }
 
     .weather-pill.is-hidden { display: none; }
@@ -166,9 +188,10 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .icon-btn {
       width: 44px;
       height: 44px;
-      border: 0;
-      border-radius: 14px;
+      border: 1px solid var(--card-border);
+      border-radius: var(--pill-radius);
       background: var(--card);
+      box-shadow: var(--surface-shadow), var(--surface-inset);
       display: grid;
       place-items: center;
       flex: 0 0 auto;
@@ -190,9 +213,9 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     .section-label {
       margin: 1.25rem var(--pad) 0.5rem;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.14em;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
       color: var(--muted);
     }
@@ -200,14 +223,15 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .tile {
       background: var(--card);
       border: 1px solid var(--card-border);
-      border-radius: 22px;
-      margin-bottom: 0.7rem;
+      border-radius: var(--pill-radius);
+      margin-bottom: 0.75rem;
       overflow: hidden;
+      box-shadow: var(--surface-shadow), var(--surface-inset);
     }
 
-    .tile.cuna.is-on { background: var(--cuna-on); color: var(--on-text); border-color: transparent; }
-    .tile.setup.is-on { background: var(--setup-on); color: var(--on-text); border-color: transparent; }
-    .tile.group.is-on { background: var(--group-on); color: var(--on-text); border-color: transparent; }
+    .tile.cuna.is-on { background: var(--cuna-on); color: var(--on-text); border-color: rgba(255, 255, 255, 0.14); }
+    .tile.setup.is-on { background: var(--setup-on); color: var(--on-text); border-color: rgba(255, 255, 255, 0.14); }
+    .tile.group.is-on { background: var(--group-on); color: var(--on-text); border-color: rgba(255, 255, 255, 0.14); }
 
     .tile-row { display: flex; align-items: center; gap: 0.5rem; padding-right: var(--pad); }
 
@@ -228,10 +252,11 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .tile-icon {
       width: 42px;
       height: 42px;
-      border-radius: 14px;
+      border-radius: var(--pill-radius);
       display: grid;
       place-items: center;
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       flex: 0 0 auto;
     }
 
@@ -239,7 +264,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     .tile-copy { min-width: 0; }
     .tile-name, .tile-sub { display: block; }
-    .tile-name { font-size: 1.05rem; font-weight: 650; }
+    .tile-name { font-size: 1rem; font-weight: 500; letter-spacing: 0.06em; }
     .tile-sub { margin-top: 0.15rem; font-size: 0.8rem; opacity: 0.75; overflow-wrap: anywhere; }
 
     .switch {
@@ -370,10 +395,11 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .panel {
       background: var(--card);
       border: 1px solid var(--card-border);
-      border-radius: 22px;
+      border-radius: 28px;
       overflow: hidden;
       margin-bottom: 0.85rem;
       padding-bottom: var(--pad);
+      box-shadow: var(--surface-shadow), var(--surface-inset);
     }
 
     .panel.list { padding-bottom: 0; }
@@ -435,18 +461,21 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     .choice, .chip, .text-btn, .primary {
       min-height: 44px;
-      border-radius: 14px;
+      border-radius: var(--pill-radius);
       border: 1px solid var(--line);
-      background: transparent;
-      font-size: 0.95rem;
+      background: color-mix(in srgb, var(--walnut-soft) 18%, transparent);
+      font-size: 0.92rem;
+      letter-spacing: 0.04em;
+      box-shadow: var(--surface-inset);
     }
 
     .choice, .chip { flex: 1 1 5rem; min-width: 0; padding: 0.55rem 0.4rem; }
     .choice[aria-pressed="true"], .chip[aria-pressed="true"], .primary {
-      background: var(--text);
-      color: var(--bg);
-      border-color: transparent;
-      font-weight: 700;
+      background: linear-gradient(135deg, var(--walnut-deep), var(--walnut-mid));
+      color: var(--on-text);
+      border-color: rgba(255, 255, 255, 0.12);
+      font-weight: 600;
+      box-shadow: var(--surface-shadow), var(--surface-inset);
     }
 
     .text-btn, .primary { flex: 1; padding: 0.7rem 0.8rem; }
@@ -638,14 +667,15 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     </section>
 
     <section class="group-sheet" id="group-sheet" hidden aria-labelledby="group-sheet-title">
+      <form id="group-form" novalidate>
       <div class="panel">
         <button class="back" type="button" id="close-group-sheet">‹ Inicio</button>
         <h2 class="subhead" id="group-sheet-title">Grupo</h2>
         <p class="help">Orden e intensidad de cada zona. El atajo HTTP usa el identificador en minúsculas.</p>
         <label class="field-label" for="grp-label">Nombre</label>
-        <input class="field" id="grp-label" type="text" maxlength="31" required>
+        <input class="field" id="grp-label" type="text" maxlength="31" autocomplete="off">
         <label class="field-label" for="grp-id">Identificador (atajos / API)</label>
-        <input class="field" id="grp-id" type="text" pattern="[a-z][a-z0-9_]{0,14}" maxlength="15" required>
+        <input class="field" id="grp-id" type="text" pattern="[a-z][a-z0-9_]{0,14}" maxlength="15" autocomplete="off">
         <label class="field-label" for="grp-next">Solapamiento entre pasos</label>
         <p class="help">Cuando el fade del paso actual llega a este porcentaje, empieza el siguiente.</p>
         <div class="chips" id="grp-next-chips" role="radiogroup" aria-label="Solapamiento">
@@ -663,9 +693,10 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <div class="row"><button class="text-btn" type="button" id="grp-add-step">Agregar paso</button></div>
       </div>
       <div class="panel">
-        <div class="row"><button class="primary" type="button" id="save-group">Guardar grupo</button></div>
+        <div class="row"><button class="primary" type="submit" id="save-group">Guardar grupo</button></div>
         <div class="row"><button class="text-btn danger" type="button" id="delete-group" hidden>Eliminar grupo</button></div>
       </div>
+      </form>
     </section>
 
     <section class="view" id="view-routines" hidden>
@@ -874,7 +905,7 @@ function markSaveDirty(buttonId) {
 
 const THEME_PREF_KEY = 'homeThemePref';
 const THEME_PREFS = ['auto', 'light', 'dark'];
-const THEME_BG = { dark: '#141210', light: '#f3eee7' };
+const THEME_BG = { dark: '#1f1613', light: '#f5ede6' };
 const lightQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
 let themePref = THEME_PREFS.includes(document.documentElement.dataset.themePref)
   ? document.documentElement.dataset.themePref : 'auto';
@@ -1205,10 +1236,15 @@ function syncGroupNextChips(pct) {
   });
 }
 
-function openGroupEditor(id) {
+function groupIdTaken(id, ignoreId) {
+  if (!id || id === ignoreId) return false;
+  return !!groups[id] || groupOrder.includes(id);
+}
+
+function openGroupEditor(id, isNewDraft) {
   editingGroupId = id;
-  const g = groups[id];
-  editingGroupIsNew = !g;
+  const g = isNewDraft ? null : groups[id];
+  editingGroupIsNew = !!isNewDraft || !g;
   document.getElementById('group-sheet-title').textContent = g ? g.label : 'Grupo';
   document.getElementById('grp-label').value = g ? g.label : '';
   document.getElementById('grp-id').value = id;
@@ -1251,9 +1287,11 @@ function readGroupStepsFromEditor() {
   const rows = document.querySelectorAll('#grp-steps .step-row');
   const steps = [];
   rows.forEach((row, i) => {
-    const zoneBtn = row.querySelector('.chip[aria-pressed="true"]');
+    const zoneBtn = row.querySelector('[data-step-zone][aria-pressed="true"]');
     const zone = zoneBtn && zoneBtn.dataset.value === 'setup' ? 'setup' : 'cuna';
-    const level = +document.getElementById('step-level-' + i).value;
+    const levelEl = document.getElementById('step-level-' + i);
+    const level = levelEl ? +levelEl.value : NaN;
+    if (!Number.isFinite(level)) return;
     steps.push({
       zone,
       level: Math.round(level),
@@ -1266,6 +1304,7 @@ function readGroupStepsFromEditor() {
 function groupPayload(order, source) {
   return order.map((id) => {
     const g = source[id];
+    if (!g) throw new Error('Falta configurar el grupo «' + id + '»');
     return {
       id,
       label: g.label,
@@ -1277,25 +1316,44 @@ function groupPayload(order, source) {
 
 async function saveGroupEditor() {
   if (!editingGroupId) return;
-  const label = document.getElementById('grp-label').value.trim();
-  let id = document.getElementById('grp-id').value.trim();
+  const labelEl = document.getElementById('grp-label');
+  const idEl = document.getElementById('grp-id');
+  const label = labelEl.value.trim();
+  let id = idEl.value.trim().toLowerCase();
+  idEl.value = id;
   const nextPct = +document.getElementById('grp-next').value;
   const steps = readGroupStepsFromEditor();
-  if (!label || !id || !steps.length || steps.length > MAX_GROUP_STEPS) {
-    setStatus('Revisa nombre, identificador y pasos');
+  if (!label) {
+    labelEl.focus();
+    setStatus('Escribe un nombre para el grupo');
+    showSaveFeedback('Escribe un nombre para el grupo', true);
     return;
   }
+  if (!id) {
+    idEl.value = slugifyGroupId(label);
+    id = idEl.value;
+  }
   if (!/^[a-z][a-z0-9_]{0,14}$/.test(id)) {
+    idEl.focus();
     setStatus('Identificador inválido (minúsculas, números, _)');
+    showSaveFeedback('Identificador inválido', true);
+    return;
+  }
+  if (!steps.length || steps.length > MAX_GROUP_STEPS || steps.some((s) => s.level < 0 || s.level > 100)) {
+    setStatus('Revisa los pasos e intensidades');
+    showSaveFeedback('Revisa los pasos e intensidades', true);
     return;
   }
   if (!Number.isFinite(nextPct) || nextPct < 5 || nextPct > 100) {
     setStatus('Avance entre pasos inválido');
+    showSaveFeedback('Avance entre pasos inválido', true);
     return;
   }
   const oldId = editingGroupId;
-  if (oldId !== id && groups[id]) {
+  if (groupIdTaken(id, oldId)) {
+    idEl.focus();
     setStatus('Ese identificador ya existe');
+    showSaveFeedback('Ese identificador ya existe', true);
     return;
   }
 
@@ -1312,13 +1370,23 @@ async function saveGroupEditor() {
   if (!wasNew && oldId !== id) delete nextGroups[oldId];
   nextGroups[id] = candidate;
   const nextOrder = wasNew
-    ? groupOrder.concat(id)
+    ? (groupOrder.includes(id) ? groupOrder.slice() : groupOrder.concat(id))
     : groupOrder.map((x) => (x === oldId ? id : x));
 
   groupsQuietUntil = Date.now() + 10000;
   setSaveButtonState('save-group', 'saving');
+  let payload;
   try {
-    await api('/api/routines', { routines: groupPayload(nextOrder, nextGroups) });
+    payload = groupPayload(nextOrder, nextGroups);
+  } catch (e) {
+    groupsQuietUntil = 0;
+    setSaveButtonState('save-group', 'dirty');
+    setStatus(e.message);
+    showSaveFeedback(e.message, true);
+    return;
+  }
+  try {
+    await api('/api/routines', { routines: payload });
     if (!wasNew && oldId !== id) delete groups[oldId];
     groups[id] = candidate;
     groupOrder = nextOrder;
@@ -1356,13 +1424,16 @@ async function addNewGroup() {
   const label = 'Grupo ' + (groupOrder.length + 1);
   let id = slugifyGroupId(label);
   let n = 2;
-  while (groups[id]) {
+  while (groupIdTaken(id)) {
     id = slugifyGroupId(label + ' ' + n);
     n++;
   }
-  openGroupEditor(id);
+  openGroupEditor(id, true);
   document.getElementById('grp-label').value = '';
+  document.getElementById('grp-id').value = id;
+  document.getElementById('grp-id').readOnly = false;
   document.getElementById('group-sheet-title').textContent = 'Nuevo grupo';
+  setSaveButtonState('save-group', 'dirty');
   document.getElementById('grp-label').focus();
 }
 
@@ -1850,7 +1921,10 @@ document.getElementById('group-list').addEventListener('click', (event) => {
 });
 document.getElementById('add-group').addEventListener('click', addNewGroup);
 document.getElementById('close-group-sheet').addEventListener('click', closeGroupEditor);
-document.getElementById('save-group').addEventListener('click', saveGroupEditor);
+document.getElementById('group-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  saveGroupEditor();
+});
 document.getElementById('delete-group').addEventListener('click', deleteEditingGroup);
 document.getElementById('grp-add-step').addEventListener('click', () => {
   const steps = readGroupStepsFromEditor();
