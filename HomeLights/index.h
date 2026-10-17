@@ -110,15 +110,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       letter-spacing: -0.03em;
     }
 
-    .header-meta {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.45rem 0.6rem;
-      margin-top: 0.35rem;
-    }
-
-    #datetime, .status {
+    .status {
       margin: 0;
       color: var(--muted);
       font-size: 0.82rem;
@@ -127,19 +119,42 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     .status:empty { display: none; }
 
+    .day-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      min-height: 62px;
+      margin: 0.75rem 0 0.25rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 100% 0, color-mix(in srgb, var(--accent) 22%, transparent), transparent 58%),
+        var(--card);
+    }
+
+    #datetime {
+      margin: 0;
+      font-size: 0.92rem;
+      font-weight: 650;
+      line-height: 1.35;
+    }
+
     .weather-pill {
       display: inline-flex;
       align-items: center;
-      gap: 0.3rem;
-      min-height: 28px;
-      padding: 0.15rem 0.55rem;
+      gap: 0.4rem;
+      min-height: 34px;
+      padding: 0.25rem 0.65rem;
       border-radius: 999px;
-      background: var(--card);
-      font-size: 0.78rem;
+      background: color-mix(in srgb, var(--accent) 16%, transparent);
+      font-size: 0.9rem;
+      font-weight: 700;
     }
 
     .weather-pill.is-hidden { display: none; }
-    .weather-icon svg { width: 16px; height: 16px; display: block; }
+    .weather-icon svg { width: 19px; height: 19px; display: block; }
 
     .icon-btn, .tab, .switch, .back, .choice, .chip, .text-btn, .primary {
       font: inherit;
@@ -436,6 +451,33 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     .text-btn, .primary { flex: 1; padding: 0.7rem 0.8rem; }
     .text-btn.danger { color: #ffb4a8; }
+    button.is-saving { opacity: 0.65; }
+    button.is-saved {
+      background: #5f9f72;
+      color: #fff;
+    }
+    button.is-dirty::after { content: " ·"; color: var(--accent); }
+
+    .save-feedback {
+      position: fixed;
+      z-index: 80;
+      top: max(0.8rem, calc(env(safe-area-inset-top) + 0.4rem));
+      left: 50%;
+      width: max-content;
+      max-width: calc(100% - 2rem);
+      transform: translateX(-50%);
+      margin: 0;
+      padding: 0.7rem 0.9rem;
+      border-radius: 14px;
+      background: #5f9f72;
+      color: #fff;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.24);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .save-feedback.is-error { background: #a4473d; }
+    .save-feedback[hidden] { display: none; }
 
     .routine {
       display: flex;
@@ -541,21 +583,20 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <body>
   <div class="app">
     <header class="top">
-      <div>
-        <h1>Home</h1>
-        <div class="header-meta">
-          <p id="datetime">Conectando…</p>
-          <div class="weather-pill is-hidden" id="weather-pill" aria-hidden="true">
-            <span class="weather-icon" id="weather-icon"></span>
-            <span class="weather-temp" id="weather-temp"></span>
-          </div>
-        </div>
-      </div>
+      <h1>Home</h1>
       <button class="icon-btn" id="alt-toggle" type="button" aria-pressed="false" aria-label="Activar modo alternado">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h11l-2.5-2.5M17 17H6l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </header>
+    <div class="day-banner" aria-label="Fecha y clima">
+      <p id="datetime">Conectando…</p>
+      <div class="weather-pill is-hidden" id="weather-pill" aria-hidden="true">
+        <span class="weather-icon" id="weather-icon"></span>
+        <span class="weather-temp" id="weather-temp"></span>
+      </div>
+    </div>
     <p id="status" class="status" role="status"></p>
+    <p id="save-feedback" class="save-feedback" role="status" hidden></p>
     <p id="alt-banner" class="banner" hidden>Modo alternado activo: Cunero y Setup se encienden por turnos.</p>
 
     <section class="view" id="view-home">
@@ -772,6 +813,7 @@ const groups = {
   }
 };
 let editingGroupId = null;
+let editingGroupIsNew = false;
 let groupsQuietUntil = 0;
 let routinesSupported = true;
 // Comando de rutina sin confirmar: { id, expect: 'on' | 'off' }.
@@ -799,6 +841,35 @@ const routineChoice = { zone: 'cuna', action: 'off' };
 
 function setStatus(message) {
   document.getElementById('status').textContent = message || '';
+}
+
+let feedbackTimer = null;
+
+function showSaveFeedback(message, error) {
+  const el = document.getElementById('save-feedback');
+  clearTimeout(feedbackTimer);
+  el.textContent = message;
+  el.classList.toggle('is-error', !!error);
+  el.hidden = false;
+  feedbackTimer = setTimeout(() => { el.hidden = true; }, 2400);
+}
+
+function setSaveButtonState(id, state) {
+  const button = document.getElementById(id);
+  if (!button) return;
+  if (!button.dataset.idleLabel) button.dataset.idleLabel = button.textContent;
+  button.classList.toggle('is-saving', state === 'saving');
+  button.classList.toggle('is-saved', state === 'saved');
+  button.classList.toggle('is-dirty', state === 'dirty');
+  button.disabled = state === 'saving';
+  if (state === 'saving') button.textContent = 'Guardando…';
+  else if (state === 'saved') button.textContent = '✓ Guardado';
+  else if (state === 'dirty') button.textContent = 'Guardar cambios';
+  else button.textContent = button.dataset.idleLabel;
+}
+
+function markSaveDirty(buttonId) {
+  setSaveButtonState(buttonId, 'dirty');
 }
 
 const THEME_PREF_KEY = 'homeThemePref';
@@ -1137,6 +1208,7 @@ function syncGroupNextChips(pct) {
 function openGroupEditor(id) {
   editingGroupId = id;
   const g = groups[id];
+  editingGroupIsNew = !g;
   document.getElementById('group-sheet-title').textContent = g ? g.label : 'Grupo';
   document.getElementById('grp-label').value = g ? g.label : '';
   document.getElementById('grp-id').value = id;
@@ -1144,11 +1216,13 @@ function openGroupEditor(id) {
   syncGroupNextChips((g ? g.nextStepAt : 0.7) * 100);
   document.getElementById('delete-group').hidden = !g || id === 'habitacion' || id === 'baby';
   renderGroupStepEditor(g ? g.steps : [{ zone: 'cuna', level: 50, delayMs: 0 }]);
+  setSaveButtonState('save-group', editingGroupIsNew ? 'dirty' : 'idle');
   document.getElementById('group-sheet').hidden = false;
 }
 
 function closeGroupEditor() {
   editingGroupId = null;
+  editingGroupIsNew = false;
   document.getElementById('group-sheet').hidden = true;
 }
 
@@ -1189,9 +1263,9 @@ function readGroupStepsFromEditor() {
   return steps;
 }
 
-function groupsPayload() {
-  return groupOrder.map((id) => {
-    const g = groups[id];
+function groupPayload(order, source) {
+  return order.map((id) => {
+    const g = source[id];
     return {
       id,
       label: g.label,
@@ -1224,29 +1298,57 @@ async function saveGroupEditor() {
     setStatus('Ese identificador ya existe');
     return;
   }
-  if (oldId !== id) {
-    groups[id] = groups[oldId];
-    delete groups[oldId];
-    groupOrder = groupOrder.map((x) => (x === oldId ? id : x));
-  }
-  groups[id].label = label;
-  groups[id].steps = steps;
-  groups[id].nextStepAt = nextPct / 100;
+
+  const wasNew = editingGroupIsNew;
+  const previous = groups[oldId];
+  const candidate = {
+    label,
+    state: previous ? previous.state : 'idle',
+    step: previous ? previous.step : 'idle',
+    nextStepAt: nextPct / 100,
+    steps
+  };
+  const nextGroups = Object.assign({}, groups);
+  if (!wasNew && oldId !== id) delete nextGroups[oldId];
+  nextGroups[id] = candidate;
+  const nextOrder = wasNew
+    ? groupOrder.concat(id)
+    : groupOrder.map((x) => (x === oldId ? id : x));
+
   groupsQuietUntil = Date.now() + 10000;
+  setSaveButtonState('save-group', 'saving');
   try {
-    await api('/api/routines', { routines: groupsPayload() });
+    await api('/api/routines', { routines: groupPayload(nextOrder, nextGroups) });
+    if (!wasNew && oldId !== id) delete groups[oldId];
+    groups[id] = candidate;
+    groupOrder = nextOrder;
     groupsQuietUntil = Date.now() + 3000;
     groupConfigLoaded = true;
-    closeGroupEditor();
+    editingGroupId = id;
+    editingGroupIsNew = false;
+    setSaveButtonState('save-group', 'saved');
     setStatus('Grupo guardado');
+    showSaveFeedback('✓ Grupo guardado');
+    paint();
+    setTimeout(closeGroupEditor, 450);
     poll();
   } catch (e) {
     groupsQuietUntil = 0;
+    setSaveButtonState('save-group', 'dirty');
     setStatus(e.message);
+    showSaveFeedback(e.message, true);
   }
 }
 
-function addNewGroup() {
+async function addNewGroup() {
+  if (!groupConfigLoaded) {
+    await refreshGroupConfig(true);
+    if (!groupConfigLoaded) {
+      setStatus('No se pudieron cargar los grupos');
+      showSaveFeedback('No se pudieron cargar los grupos', true);
+      return;
+    }
+  }
   if (groupOrder.length >= MAX_GROUPS) {
     setStatus('Máximo ' + MAX_GROUPS + ' grupos');
     return;
@@ -1258,31 +1360,32 @@ function addNewGroup() {
     id = slugifyGroupId(label + ' ' + n);
     n++;
   }
-  groups[id] = {
-    label,
-    state: 'idle',
-    step: 'idle',
-    nextStepAt: 0.7,
-    steps: [{ zone: 'cuna', level: 50, delayMs: 0 }, { zone: 'setup', level: 50, delayMs: 0 }]
-  };
-  groupOrder.push(id);
   openGroupEditor(id);
+  document.getElementById('grp-label').value = '';
+  document.getElementById('group-sheet-title').textContent = 'Nuevo grupo';
+  document.getElementById('grp-label').focus();
 }
 
 async function deleteEditingGroup() {
   if (!editingGroupId || editingGroupId === 'habitacion' || editingGroupId === 'baby') return;
   const id = editingGroupId;
-  delete groups[id];
-  groupOrder = groupOrder.filter((x) => x !== id);
+  const nextOrder = groupOrder.filter((x) => x !== id);
+  const nextGroups = Object.assign({}, groups);
+  delete nextGroups[id];
   groupsQuietUntil = Date.now() + 10000;
   try {
-    await api('/api/routines', { routines: groupsPayload() });
+    await api('/api/routines', { routines: groupPayload(nextOrder, nextGroups) });
+    delete groups[id];
+    groupOrder = nextOrder;
     closeGroupEditor();
     setStatus('Grupo eliminado');
+    showSaveFeedback('Grupo eliminado');
+    paint();
     poll();
   } catch (e) {
     groupsQuietUntil = 0;
     setStatus(e.message);
+    showSaveFeedback(e.message, true);
   }
 }
 
@@ -1454,16 +1557,21 @@ function addSchedule() {
 
 async function saveSchedules() {
   schedulesQuietUntil = Date.now() + 8000;
+  setSaveButtonState('save-routines', 'saving');
   try {
     const res = await api('/api/schedule', { schedules });
     if (res.schedules) schedules = res.schedules;
     schedulesDirty = false;
     schedulesQuietUntil = Date.now() + 8000;
     renderSchedules();
+    setSaveButtonState('save-routines', 'saved');
     setStatus('Rutinas guardadas');
+    showSaveFeedback('✓ Rutinas guardadas');
   } catch (e) {
     schedulesQuietUntil = 0;
+    setSaveButtonState('save-routines', 'dirty');
     setStatus(e.message);
+    showSaveFeedback(e.message, true);
   }
 }
 
@@ -1494,17 +1602,22 @@ async function saveSettings() {
   }
   settingsSaveToken++;
   settingsQuietUntil = Date.now() + 10000;
+  setSaveButtonState('save-settings', 'saving');
   try {
     const res = await api('/api/settings', { settings: payload });
     ['cfg-fade-on', 'cfg-fade-off', 'cfg-gamma', 'cfg-default-on'].forEach((id) => dirtyFields.delete(id));
     applySettingsFromServer(res.settings, true);
     settingsQuietUntil = Date.now() + 3000;
+    setSaveButtonState('save-settings', 'saved');
     setStatus('Encendido guardado');
+    showSaveFeedback('✓ Encendido guardado');
     poll();
   } catch (e) {
     settingsSaveToken--;
     settingsQuietUntil = 0;
+    setSaveButtonState('save-settings', 'dirty');
     setStatus(e.message);
+    showSaveFeedback(e.message, true);
   }
 }
 
@@ -1520,6 +1633,7 @@ function applyAlternateFromServer(alt, force) {
 async function saveAlternate() {
   if (!validateFields(['alt-level', 'alt-period'])) return;
   alternateQuietUntil = Date.now() + 8000;
+  setSaveButtonState('save-alternate', 'saving');
   try {
     const res = await api('/api/alternate', {
       period: +document.getElementById('alt-period').value,
@@ -1528,10 +1642,14 @@ async function saveAlternate() {
     ['alt-period', 'alt-level'].forEach((id) => dirtyFields.delete(id));
     applyAlternateFromServer(res.alternate, true);
     alternateQuietUntil = Date.now() + 8000;
+    setSaveButtonState('save-alternate', 'saved');
     setStatus('Modo alternado guardado');
+    showSaveFeedback('✓ Modo alternado guardado');
   } catch (e) {
     alternateQuietUntil = 0;
+    setSaveButtonState('save-alternate', 'dirty');
     setStatus(e.message);
+    showSaveFeedback(e.message, true);
   }
 }
 
@@ -1541,7 +1659,7 @@ const WEATHER_CACHE_MAX_MS = 2 * 60 * 60 * 1000;
 let weatherLat = null;
 let weatherLon = null;
 let weatherTimerStarted = false;
-let lastDateTimeMinuteKey = '';
+let lastDateKey = '';
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -1553,16 +1671,11 @@ function clockToDate(clock) {
 
 function updateDateTimeFromClock(clock) {
   const date = clockToDate(clock);
-  const key = [date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes()].join('-');
-  if (key === lastDateTimeMinuteKey) return;
-  lastDateTimeMinuteKey = key;
-  let hour = date.getHours();
-  const pm = hour >= 12;
-  if (hour === 0) hour = 12;
-  else if (hour > 12) hour -= 12;
+  const key = [date.getFullYear(), date.getMonth(), date.getDate()].join('-');
+  if (key === lastDateKey) return;
+  lastDateKey = key;
   document.getElementById('datetime').textContent =
-    DIAS[date.getDay()] + ' ' + date.getDate() + ' de ' + MESES[date.getMonth()] +
-    ' · ' + hour + ':' + String(date.getMinutes()).padStart(2, '0') + (pm ? ' p.m.' : ' a.m.');
+    DIAS[date.getDay()] + ', ' + date.getDate() + ' de ' + MESES[date.getMonth()];
 }
 
 function weatherIcon(kind, isDay) {
@@ -1747,6 +1860,7 @@ document.getElementById('grp-add-step').addEventListener('click', () => {
   }
   steps.push({ zone: 'setup', level: 50, delayMs: 0 });
   renderGroupStepEditor(steps);
+  markSaveDirty('save-group');
 });
 document.getElementById('grp-next-chips').addEventListener('click', (event) => {
   const chip = event.target.closest('[data-grp-next]');
@@ -1758,12 +1872,15 @@ document.getElementById('grp-next-chips').addEventListener('click', (event) => {
     const input = document.getElementById('grp-next');
     input.hidden = false;
     input.focus();
+    markSaveDirty('save-group');
     return;
   }
   syncGroupNextChips(+val);
+  markSaveDirty('save-group');
 });
 document.getElementById('grp-next').addEventListener('input', () => {
   syncGroupNextChips(+document.getElementById('grp-next').value);
+  markSaveDirty('save-group');
 });
 document.getElementById('grp-steps').addEventListener('click', (event) => {
   const zoneBtn = event.target.closest('[data-step-zone]');
@@ -1771,6 +1888,7 @@ document.getElementById('grp-steps').addEventListener('click', (event) => {
     const row = zoneBtn.closest('.step-row');
     row.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
     zoneBtn.setAttribute('aria-pressed', 'true');
+    markSaveDirty('save-group');
     return;
   }
   let steps = readGroupStepsFromEditor();
@@ -1784,6 +1902,7 @@ document.getElementById('grp-steps').addEventListener('click', (event) => {
       steps[i - 1] = steps[i];
       steps[i] = t;
       renderGroupStepEditor(steps);
+      markSaveDirty('save-group');
     }
   } else if (down) {
     const i = +down.dataset.stepDown;
@@ -1792,20 +1911,30 @@ document.getElementById('grp-steps').addEventListener('click', (event) => {
       steps[i + 1] = steps[i];
       steps[i] = t;
       renderGroupStepEditor(steps);
+      markSaveDirty('save-group');
     }
   } else if (del) {
     const i = +del.dataset.stepDel;
     if (steps.length <= 1) return;
     steps.splice(i, 1);
     renderGroupStepEditor(steps);
+    markSaveDirty('save-group');
   }
 });
 document.getElementById('grp-label').addEventListener('input', () => {
   const idEl = document.getElementById('grp-id');
-  if (idEl.readOnly || !editingGroupId || groups[editingGroupId]) return;
-  if (editingGroupId.startsWith('grupo')) {
+  if (editingGroupIsNew && !idEl.readOnly) {
     idEl.value = slugifyGroupId(document.getElementById('grp-label').value);
   }
+  markSaveDirty('save-group');
+});
+document.getElementById('grp-id').addEventListener('input', () => markSaveDirty('save-group'));
+document.getElementById('grp-steps').addEventListener('input', () => markSaveDirty('save-group'));
+['cfg-fade-on', 'cfg-fade-off', 'cfg-gamma', 'cfg-default-on'].forEach((id) => {
+  document.getElementById(id).addEventListener('input', () => markSaveDirty('save-settings'));
+});
+['alt-level', 'alt-period'].forEach((id) => {
+  document.getElementById(id).addEventListener('input', () => markSaveDirty('save-alternate'));
 });
 document.getElementById('save-settings').addEventListener('click', saveSettings);
 document.getElementById('save-alternate').addEventListener('click', saveAlternate);
@@ -1824,8 +1953,11 @@ document.getElementById('save-link').addEventListener('click', () => {
   if (!input.reportValidity()) return;
   localStorage.setItem('espApiBase', input.value.trim().replace(/\/$/, ''));
   dirtyFields.delete('esp-base');
+  setSaveButtonState('save-link', 'saved');
+  showSaveFeedback('✓ Conexión guardada');
   poll();
 });
+document.getElementById('esp-base').addEventListener('input', () => markSaveDirty('save-link'));
 
 ['cuna', 'setup'].forEach((zone) => {
   document.getElementById('open-' + zone).addEventListener('click', () => {
