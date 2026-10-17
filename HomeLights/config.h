@@ -32,7 +32,7 @@
 #define WEATHER_LAT 26.09
 #define WEATHER_LON -98.28
 
-#define FW_VERSION "1.0.10"
+#define FW_VERSION "1.0.11"
 #define OTA_MANIFEST_URL "https://github.com/Cavazos32/Home/releases/latest/download/version.json"
 #define OTA_CHECK_INTERVAL_MS (6UL * 60UL * 60UL * 1000UL)
 #define OTA_BOOT_DELAY_MS (30UL * 1000UL)

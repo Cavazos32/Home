@@ -444,13 +444,13 @@ struct LightController::Impl {
     }
 
     bool fromJson(JsonArray arr) {
-      RoutineDef tmp[MAX_ROUTINE_GROUPS];
+      RoutineDef tmp[kMaxDefs];
       uint8_t n = 0;
 
       for (JsonObject o : arr) {
-        if (n >= MAX_ROUTINE_GROUPS) return false;
+        if (n >= kMaxDefs) return false;
         RoutineDef& def = tmp[n++];
-        memset(&def, 0, sizeof(def));
+        def = RoutineDef();
 
         const char* id = o["id"] | "";
         const char* label = o["label"] | id;
@@ -495,9 +495,14 @@ struct LightController::Impl {
         }
       }
 
-      defCount_ = n;
-      for (uint8_t i = 0; i < n; ++i) {
-        defs_[i + 1] = tmp[i];
+      char activeId[sizeof(RoutineDef::id)] = {};
+      if (isActive()) strncpy(activeId, defs_[active_].id, sizeof(activeId) - 1);
+      if (!applyDefs(tmp, n)) return false;
+      const RoutineId stillActive = activeId[0] ? idFromName(activeId) : ROUTINE_NONE;
+      if (stillActive == ROUTINE_NONE) {
+        cancel();
+      } else {
+        active_ = stillActive;
       }
       saveToNvs();
       return true;
@@ -565,27 +570,55 @@ struct LightController::Impl {
       }
     }
 
+    // defs_[0] es ROUTINE_NONE; las definiciones reales ocupan defs_[1..kMaxDefs].
+    static const uint8_t kMaxDefs = MAX_ROUTINE_GROUPS - 1;
+
+    static RoutineDef habitacionDefault() {
+      RoutineDef d;
+      strncpy(d.id, "habitacion", sizeof(d.id) - 1);
+      strncpy(d.label, "Habitación", sizeof(d.label) - 1);
+      d.stepCount = 2;
+      d.steps[0] = {ZONE_CUNA, GROUP_CUNA_LEVEL, 0};
+      d.steps[1] = {ZONE_SETUP, GROUP_SETUP_LEVEL, 0};
+      return d;
+    }
+
+    static RoutineDef babyDefault() {
+      RoutineDef d;
+      strncpy(d.id, "baby", sizeof(d.id) - 1);
+      strncpy(d.label, "Baby", sizeof(d.label) - 1);
+      d.stepCount = 2;
+      d.steps[0] = {ZONE_SETUP, BABY_SETUP_LEVEL, 0};
+      d.steps[1] = {ZONE_CUNA, BABY_CUNA_LEVEL, 0};
+      return d;
+    }
+
+    // Habitación y Baby ocupan siempre ROUTINE_HABITACION y ROUTINE_BABY (atajos y API antigua);
+    // si faltan en la lista se restauran con sus valores por defecto.
+    bool applyDefs(const RoutineDef* list, uint8_t n) {
+      RoutineDef ordered[kMaxDefs];
+      int hab = -1;
+      int baby = -1;
+      for (uint8_t i = 0; i < n; ++i) {
+        if (strcmp(list[i].id, "habitacion") == 0) hab = i;
+        if (strcmp(list[i].id, "baby") == 0) baby = i;
+      }
+      uint8_t count = 0;
+      ordered[count++] = hab >= 0 ? list[hab] : habitacionDefault();
+      ordered[count++] = baby >= 0 ? list[baby] : babyDefault();
+      for (uint8_t i = 0; i < n; ++i) {
+        if (static_cast<int>(i) == hab || static_cast<int>(i) == baby) continue;
+        if (count >= kMaxDefs) return false;
+        ordered[count++] = list[i];
+      }
+      for (uint8_t i = 0; i < count; ++i) defs_[i + 1] = ordered[i];
+      defCount_ = static_cast<uint8_t>(count + 1);
+      return true;
+    }
+
     void seedDefaults() {
-      defCount_ = 3;
-      memset(defs_, 0, sizeof(defs_));
-      {
-        RoutineDef& d = defs_[ROUTINE_HABITACION];
-        strncpy(d.id, "habitacion", sizeof(d.id) - 1);
-        strncpy(d.label, "Habitación", sizeof(d.label) - 1);
-        d.nextStepAt = ROUTINE_NEXT_STEP_AT;
-        d.stepCount = 2;
-        d.steps[0] = {ZONE_CUNA, GROUP_CUNA_LEVEL, 0};
-        d.steps[1] = {ZONE_SETUP, GROUP_SETUP_LEVEL, 0};
-      }
-      {
-        RoutineDef& d = defs_[ROUTINE_BABY];
-        strncpy(d.id, "baby", sizeof(d.id) - 1);
-        strncpy(d.label, "Baby", sizeof(d.label) - 1);
-        d.nextStepAt = ROUTINE_NEXT_STEP_AT;
-        d.stepCount = 2;
-        d.steps[0] = {ZONE_SETUP, BABY_SETUP_LEVEL, 0};
-        d.steps[1] = {ZONE_CUNA, BABY_CUNA_LEVEL, 0};
-      }
+      const RoutineDef none[1] = {};
+      applyDefs(none, 0);
     }
 
     void loadFromNvs() {
@@ -594,26 +627,23 @@ struct LightController::Impl {
       size_t len = prefs_->getBytesLength("routineDefs");
       if (len == 0 || len % sizeof(RoutineDef) != 0) return;
       size_t n = len / sizeof(RoutineDef);
-      if (n == 0 || n > MAX_ROUTINE_GROUPS - 1) return;
-      RoutineDef loaded[MAX_ROUTINE_GROUPS];
+      if (n == 0 || n > kMaxDefs) return;
+      RoutineDef loaded[kMaxDefs];
       prefs_->getBytes("routineDefs", loaded, len);
-      defCount_ = static_cast<uint8_t>(n + 1);
       for (size_t i = 0; i < n; ++i) {
         loaded[i].id[sizeof(loaded[i].id) - 1] = '\0';
         loaded[i].label[sizeof(loaded[i].label) - 1] = '\0';
         if (!validSlug(loaded[i].id) || loaded[i].stepCount == 0 ||
             loaded[i].stepCount > MAX_ROUTINE_STEPS) {
-          seedDefaults();
           return;
         }
         for (uint8_t s = 0; s < loaded[i].stepCount; ++s) {
           if (loaded[i].steps[s].zone > ZONE_SETUP || loaded[i].steps[s].level > 100) {
-            seedDefaults();
             return;
           }
         }
-        defs_[i + 1] = loaded[i];
       }
+      if (!applyDefs(loaded, static_cast<uint8_t>(n))) seedDefaults();
     }
 
     void saveToNvs() {
