@@ -290,9 +290,103 @@
     .switch[aria-checked="true"] { background: rgba(255, 255, 255, 0.92); }
     .switch[aria-checked="true"]::after { transform: translateX(20px); }
 
-    .tile-extra { padding: 0 var(--pad) var(--pad); }
+    .tile.is-expanded { border-radius: 28px; }
+
+    .tile-extra {
+      padding: 0 var(--pad) var(--pad);
+      border-top: 1px solid var(--line);
+      margin-top: 0.15rem;
+    }
+
     .tile-extra[hidden] { display: none; }
-    .tile-extra .field-label { margin: 0 0 0.35rem; }
+
+    .tile-extra .hint {
+      margin: 0.85rem 0 0.15rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--walnut-soft) 14%, transparent);
+      font-size: 0.82rem;
+      text-align: center;
+      opacity: 0.85;
+    }
+
+    .brightness {
+      margin-top: 0.75rem;
+      padding: 0.75rem 0.85rem 0.55rem;
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--walnut-deep) 35%, transparent);
+      border: 1px solid var(--line);
+      box-shadow: var(--surface-inset);
+    }
+
+    .brightness[hidden] { display: none; }
+
+    .brightness-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.55rem;
+    }
+
+    .brightness-head .field-label {
+      margin: 0;
+      padding: 0;
+      font-size: 0.68rem;
+      letter-spacing: 0.16em;
+    }
+
+    .brightness-val {
+      font-size: 1.05rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.04em;
+    }
+
+    input[type="range"].level-slider {
+      display: block;
+      width: 100%;
+      height: 28px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      -webkit-appearance: none;
+      appearance: none;
+      accent-color: var(--accent);
+    }
+
+    input[type="range"].level-slider::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--walnut-soft) 45%, transparent);
+    }
+
+    input[type="range"].level-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 22px;
+      height: 22px;
+      margin-top: -8px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.85);
+      background: var(--accent);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+    }
+
+    input[type="range"].level-slider::-moz-range-track {
+      height: 6px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--walnut-soft) 45%, transparent);
+    }
+
+    input[type="range"].level-slider::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.85);
+      background: var(--accent);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+    }
 
     .group-actions-row { padding-bottom: 1rem; }
 
@@ -364,7 +458,7 @@
     }
     .hint { margin: 0; font-size: 0.82rem; opacity: 0.8; }
 
-    input[type="range"] { display: block; width: 100%; height: 32px; margin: 0; accent-color: currentColor; }
+    input[type="range"]:not(.level-slider) { display: block; width: 100%; height: 32px; margin: 0; accent-color: currentColor; }
 
     .menu-row, .back {
       width: 100%;
@@ -634,8 +728,13 @@
         </div>
         <div class="tile-extra" id="extra-cuna" hidden>
           <p class="hint" id="hint-cuna">Enciende la zona para ajustar el brillo.</p>
-          <label class="field-label" for="level-cuna">Brillo</label>
-          <input id="level-cuna" type="range" min="1" max="100" value="50" aria-valuemin="1" aria-valuemax="100" hidden>
+          <div class="brightness" id="brightness-cuna" hidden>
+            <div class="brightness-head">
+              <label class="field-label" for="level-cuna">Brillo</label>
+              <span class="brightness-val" id="level-cuna-val" aria-hidden="true">50%</span>
+            </div>
+            <input class="level-slider" id="level-cuna" type="range" min="1" max="100" value="50" aria-valuemin="1" aria-valuemax="100" aria-label="Brillo Cunero">
+          </div>
         </div>
       </article>
       <article class="tile setup" id="tile-setup">
@@ -648,8 +747,13 @@
         </div>
         <div class="tile-extra" id="extra-setup" hidden>
           <p class="hint" id="hint-setup">Enciende la zona para ajustar el brillo.</p>
-          <label class="field-label" for="level-setup">Brillo</label>
-          <input id="level-setup" type="range" min="1" max="100" value="50" aria-valuemin="1" aria-valuemax="100" hidden>
+          <div class="brightness" id="brightness-setup" hidden>
+            <div class="brightness-head">
+              <label class="field-label" for="level-setup">Brillo</label>
+              <span class="brightness-val" id="level-setup-val" aria-hidden="true">50%</span>
+            </div>
+            <input class="level-slider" id="level-setup" type="range" min="1" max="100" value="50" aria-valuemin="1" aria-valuemax="100" aria-label="Brillo Setup">
+          </div>
         </div>
       </article>
 
@@ -1027,25 +1131,33 @@ function zoneText(zone) {
   return pct + '%';
 }
 
+function setZoneBrightnessUi(zone, pct) {
+  const rounded = Math.max(1, Math.min(100, Math.round(pct) || 1));
+  const slider = document.getElementById('level-' + zone);
+  const val = document.getElementById('level-' + zone + '-val');
+  if (val) val.textContent = rounded + '%';
+  if (slider) {
+    slider.value = String(rounded);
+    slider.setAttribute('aria-valuenow', String(rounded));
+  }
+}
+
 function paint() {
   ['cuna', 'setup'].forEach((zone) => {
     const on = phase[zone] !== 'off';
-    document.getElementById('tile-' + zone).classList.toggle('is-on', on);
+    const tile = document.getElementById('tile-' + zone);
+    tile.classList.toggle('is-on', on);
+    const open = expanded === zone;
+    tile.classList.toggle('is-expanded', open);
     document.getElementById(zone + '-sub').textContent = zoneText(zone);
     document.getElementById('switch-' + zone).setAttribute('aria-checked', String(on));
-    const open = expanded === zone;
     document.getElementById('extra-' + zone).hidden = !open;
     document.getElementById('open-' + zone).setAttribute('aria-expanded', String(open));
-    const slider = document.getElementById('level-' + zone);
     const hint = document.getElementById('hint-' + zone);
-    slider.hidden = !on;
-    slider.previousElementSibling.hidden = !on;
-    hint.hidden = on;
-    if (on && !dragging.has(zone)) {
-      const pct = Math.max(1, Math.min(100, Math.round(levelShown[zone]) || 1));
-      slider.value = String(pct);
-      slider.setAttribute('aria-valuenow', String(pct));
-    }
+    const brightness = document.getElementById('brightness-' + zone);
+    if (hint) hint.hidden = on;
+    if (brightness) brightness.hidden = !on;
+    if (on && !dragging.has(zone)) setZoneBrightnessUi(zone, levelShown[zone]);
   });
 
   renderGroupTiles();
@@ -2045,7 +2157,10 @@ document.getElementById('esp-base').addEventListener('input', () => markSaveDirt
     levelShown[zone] = value;
     phase[zone] = 'on';
     markRoutinesCancelled();
-    slider.setAttribute('aria-valuenow', String(value));
+    setZoneBrightnessUi(zone, value);
+    document.getElementById('tile-' + zone).classList.add('is-on');
+    document.getElementById('hint-' + zone).hidden = true;
+    document.getElementById('brightness-' + zone).hidden = false;
     document.getElementById(zone + '-sub').textContent = value + '%';
     sendLevel(zone, value);
   });
