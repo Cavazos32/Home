@@ -79,7 +79,7 @@ El ESP32 lee `releases/latest/download/version.json`, descarga el `.bin` por HTT
 | Fade | Transición suave (API / botones web) |
 | Horarios | Hasta 10 eventos; hora por NTP; guardado en flash |
 | Modo alternado | Cuna ↔ setup rítmico (broma) |
-| Grupos | Secuencias configurables (orden, intensidad, pausa entre pasos); hasta 6 grupos guardados en flash |
+| Grupos | Secuencias configurables (orden, intensidad, pausa entre pasos); hasta 5 grupos guardados en flash (Habitación y Baby siempre presentes) |
 | OTA | Actualizar firmware sin cable (red local o descarga desde internet) |
 
 ## Grupos (secuencias)

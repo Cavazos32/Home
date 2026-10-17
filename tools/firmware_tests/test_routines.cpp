@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <functional>
 
+#include <Preferences.h>
+
 #include "LightController.h"
 
 static uint32_t g_now = 1000;
@@ -38,7 +40,8 @@ struct Fixture {
   int minTarget[ZONE_COUNT] = {101, 101};
   int maxTarget[ZONE_COUNT] = {-1, -1};
 
-  Fixture() {
+  explicit Fixture(bool keepNvs = false) {
+    if (!keepNvs) Preferences::clearAll();
     lights.begin();
     snapshot();
   }
@@ -590,6 +593,68 @@ static void test_json_shapes() {
   CHECK(f.lights.routineFromName(nullptr) == ROUTINE_NONE);
 }
 
+static void addGroup(JsonArray arr, const char* id, const char* label, int cunaLevel) {
+  JsonObject o = arr.add<JsonObject>();
+  o["id"] = id;
+  o["label"] = label;
+  o["nextStepAt"] = 0.7;
+  JsonObject s = o["steps"].to<JsonArray>().add<JsonObject>();
+  s["zone"] = "cuna";
+  s["level"] = cunaLevel;
+}
+
+static int routineCount(LightController& lights) {
+  JsonDocument doc;
+  lights.routinesToJson(doc);
+  return static_cast<int>(doc["routines"].size());
+}
+
+static void test_save_new_group_keeps_all() {
+  Fixture f;
+  JsonDocument in;
+  JsonArray arr = in["routines"].to<JsonArray>();
+  addGroup(arr, "habitacion", "Habitación", 35);
+  addGroup(arr, "baby", "Baby", 25);
+  addGroup(arr, "lectura", "Lectura", 30);
+  CHECK(f.lights.routinesFromJson(arr));
+  CHECK(routineCount(f.lights) == 3);
+  CHECK(f.lights.routineFromName("baby") == ROUTINE_BABY);
+  const RoutineId lectura = f.lights.routineFromName("lectura");
+  CHECK(lectura != ROUTINE_NONE);
+
+  f.start(lectura);
+  CHECK(f.lights.routineActiveId() == lectura);
+  f.run(5000);
+  CHECK(f.z(ZONE_CUNA).targetLevel() == 30);
+
+  Fixture rebooted(true);
+  CHECK(routineCount(rebooted.lights) == 3);
+  CHECK(rebooted.lights.routineFromName("lectura") != ROUTINE_NONE);
+  CHECK(rebooted.lights.routineFromName("baby") == ROUTINE_BABY);
+}
+
+static void test_builtin_groups_restored() {
+  Fixture f;
+  JsonDocument in;
+  JsonArray arr = in["routines"].to<JsonArray>();
+  addGroup(arr, "lectura", "Lectura", 30);
+  CHECK(f.lights.routinesFromJson(arr));
+  CHECK(f.lights.routineFromName("habitacion") == ROUTINE_HABITACION);
+  CHECK(f.lights.routineFromName("baby") == ROUTINE_BABY);
+  CHECK(f.lights.routineFromName("lectura") != ROUTINE_NONE);
+  CHECK(routineCount(f.lights) == 3);
+}
+
+static void test_rejects_too_many_groups() {
+  Fixture f;
+  JsonDocument in;
+  JsonArray arr = in["routines"].to<JsonArray>();
+  const char* ids[] = {"habitacion", "baby", "g3", "g4", "g5", "g6"};
+  for (const char* id : ids) addGroup(arr, id, id, 10);
+  CHECK(!f.lights.routinesFromJson(arr));
+  CHECK(routineCount(f.lights) == 2);
+}
+
 int main() {
   struct Case { const char* name; void (*fn)(); };
   const Case cases[] = {
@@ -622,6 +687,9 @@ int main() {
       {"   enabled:false sin rutina apaga", test_stop_when_idle_turns_off},
       {"22 Nunca dos rutinas activas (aleatorio)", test_never_two_active},
       {"   Formato JSON de estado", test_json_shapes},
+      {"   Guardar grupo nuevo conserva todos y se activa", test_save_new_group_keeps_all},
+      {"   Habitación y Baby se restauran si faltan", test_builtin_groups_restored},
+      {"   Rechaza más grupos de los que caben", test_rejects_too_many_groups},
   };
   for (const Case& c : cases) {
     const int before = g_failures;
