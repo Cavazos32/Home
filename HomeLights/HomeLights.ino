@@ -6,17 +6,10 @@
 
 #include "config.h"
 #include "LightController.h"
-#include "AlternateMode.h"
-#include "ScheduleManager.h"
-#include "LightSettings.h"
 #include "RemoteUpdate.h"
-#include "RoutineManager.h"
 #include "index.h"
 
 LightController lights;
-AlternateMode alternate;
-ScheduleManager schedules;
-RoutineManager routines;
 WebServer server(80);
 
 String deviceIp;
@@ -48,14 +41,9 @@ static void fillZoneJson(JsonObject obj, const LightZone& z) {
   obj["levelFine"] = z.brightnessPercent();
   obj["targetLevel"] = z.targetLevel();
   obj["on"] = z.isOn();
+  obj["lit"] = z.isLit();
   obj["transitioning"] = z.isTransitioning();
   obj["phase"] = z.phaseName();
-}
-
-static void fillRoutinesJson(JsonDocument& doc) {
-  routines.legacyGroupJson(doc["group"].to<JsonObject>());
-  routines.summaryJson(doc["routine"].to<JsonObject>());
-  routines.listJson(doc["routines"].to<JsonArray>());
 }
 
 static bool serializeDocToString(JsonDocument& doc, String& out) {
@@ -73,24 +61,19 @@ void handleState() {
   JsonDocument doc;
   doc["ip"] = deviceIp;
   doc["hostname"] = String(MDNS_HOSTNAME) + ".local";
-  doc["clock"] = schedules.currentTimeText();
-  doc["timeSynced"] = schedules.timeSynced();
+  doc["clock"] = lights.currentTimeText();
+  doc["timeSynced"] = lights.timeSynced();
   doc["weatherLat"] = WEATHER_LAT;
   doc["weatherLon"] = WEATHER_LON;
   fillZoneJson(doc["cuna"].to<JsonObject>(), lights.zone(ZONE_CUNA));
   fillZoneJson(doc["setup"].to<JsonObject>(), lights.zone(ZONE_SETUP));
 
-  fillRoutinesJson(doc);
+  lights.routinesToJson(doc);
 
-  JsonObject alt = doc["alternate"].to<JsonObject>();
-  alt["enabled"] = alternate.isEnabled();
-  alt["period"] = alternate.periodMs();
-  alt["level"] = alternate.level();
+  lights.alternateToJson(doc["alternate"].to<JsonObject>());
 
-  JsonArray arr = doc["schedules"].to<JsonArray>();
-  schedules.toJson(arr);
-
-  appSettings().toJson(doc["settings"].to<JsonObject>());
+  lights.schedulesToJson(doc["schedules"].to<JsonArray>());
+  lights.settingsToJson(doc["settings"].to<JsonObject>());
 
   String out;
   if (!serializeDocToString(doc, out)) {
@@ -118,33 +101,14 @@ void handleSettings() {
     return;
   }
 
-  const uint8_t previousOnLevel = appSettings().get().defaultOnLevel;
-  bool activeZones[ZONE_COUNT];
-  for (uint8_t i = 0; i < ZONE_COUNT; ++i) {
-    activeZones[i] = lights.zone(static_cast<LightZoneId>(i)).isOn();
-  }
-
-  if (!appSettings().fromJson(obj)) {
+  if (!lights.applySettingsJson(obj)) {
     sendJson(400, "{\"error\":\"invalid settings\"}");
     return;
   }
 
-  const LightSettings& settings = appSettings().get();
-  // Las rutinas usan sus propios niveles: no se reescalan con defaultOnLevel.
-  if (settings.defaultOnLevel != previousOnLevel && !alternate.isEnabled() &&
-      !routines.isActive()) {
-    for (uint8_t i = 0; i < ZONE_COUNT; ++i) {
-      if (activeZones[i]) {
-        lights.fadeLight(static_cast<LightZoneId>(i),
-                         settings.defaultOnLevel,
-                         settings.fadeOnMs);
-      }
-    }
-  }
-
   JsonDocument outDoc;
   outDoc["ok"] = true;
-  appSettings().toJson(outDoc["settings"].to<JsonObject>());
+  lights.settingsToJson(outDoc["settings"].to<JsonObject>());
   String out;
   serializeJson(outDoc, out);
   sendJson(200, out);
@@ -163,15 +127,40 @@ void handleSchedule() {
   }
 
   JsonArray arr = doc["schedules"].as<JsonArray>();
-  if (arr.isNull() || !schedules.fromJson(arr)) {
+  if (arr.isNull() || !lights.schedulesFromJson(arr)) {
     sendJson(400, "{\"error\":\"invalid schedules\"}");
     return;
   }
 
   JsonDocument outDoc;
   outDoc["ok"] = true;
-  JsonArray outArr = outDoc["schedules"].to<JsonArray>();
-  schedules.toJson(outArr);
+  lights.schedulesToJson(outDoc["schedules"].to<JsonArray>());
+  String out;
+  serializeJson(outDoc, out);
+  sendJson(200, out);
+}
+
+void handleRoutines() {
+  if (!server.hasArg("plain")) {
+    sendJson(400, "{\"error\":\"missing body\"}");
+    return;
+  }
+
+  JsonDocument doc;
+  if (deserializeJson(doc, server.arg("plain"))) {
+    sendJson(400, "{\"error\":\"invalid json\"}");
+    return;
+  }
+
+  JsonArray arr = doc["routines"].as<JsonArray>();
+  if (arr.isNull() || !lights.routinesFromJson(arr)) {
+    sendJson(400, "{\"error\":\"invalid routines\"}");
+    return;
+  }
+
+  JsonDocument outDoc;
+  outDoc["ok"] = true;
+  lights.routinesToJson(outDoc);
   String out;
   serializeJson(outDoc, out);
   sendJson(200, out);
@@ -189,11 +178,11 @@ void handleAlternate() {
     return;
   }
 
-  uint32_t period = alternate.periodMs();
-  uint8_t level = alternate.level();
+  uint32_t period = lights.alternatePeriodMs();
+  uint8_t level = lights.alternateLevel();
   if (!doc["period"].isNull()) {
     const int value = doc["period"].as<int>();
-    if (value < 200 || value > 5000) {
+    if (value < 0 || value > 5000) {
       sendJson(400, "{\"error\":\"invalid alternate period\"}");
       return;
     }
@@ -201,26 +190,22 @@ void handleAlternate() {
   }
   if (!doc["level"].isNull()) {
     const int value = doc["level"].as<int>();
-    if (value < 1 || value > 100) {
+    if (value < 0 || value > 100) {
       sendJson(400, "{\"error\":\"invalid alternate level\"}");
       return;
     }
     level = static_cast<uint8_t>(value);
   }
 
-  alternate.setPeriodMs(period);
-  alternate.setLevel(level);
+  lights.setAlternatePeriodMs(period);
+  lights.setAlternateLevel(level);
   if (!doc["enabled"].isNull()) {
-    if (doc["enabled"].as<bool>()) routines.cancel();
-    alternate.setEnabled(doc["enabled"].as<bool>(), lights);
+    lights.setAlternateEnabled(doc["enabled"].as<bool>());
   }
 
   JsonDocument outDoc;
   outDoc["ok"] = true;
-  JsonObject alt = outDoc["alternate"].to<JsonObject>();
-  alt["enabled"] = alternate.isEnabled();
-  alt["period"] = alternate.periodMs();
-  alt["level"] = alternate.level();
+  lights.alternateToJson(outDoc["alternate"].to<JsonObject>());
   String out;
   serializeJson(outDoc, out);
   sendJson(200, out);
@@ -246,7 +231,7 @@ void handleCommand() {
       sendJson(400, "{\"error\":\"invalid group\"}");
       return;
     }
-    const RoutineId id = RoutineManager::idFromName(groupVar | "habitacion");
+    const RoutineId id = lights.routineFromName(groupVar | "habitacion");
     if (id == ROUTINE_NONE) {
       sendJson(400, "{\"error\":\"unknown group\"}");
       return;
@@ -264,18 +249,18 @@ void handleCommand() {
       return;
     }
 
-    alternate.setEnabled(false, lights);
+    lights.setAlternateEnabled(false);
     if (op == GROUP_TOGGLE) {
-      routines.toggle(id, lights);
+      lights.toggleRoutine(id);
     } else if (op == GROUP_ON) {
-      routines.start(id, lights);
+      lights.startRoutine(id);
     } else {
-      routines.stop(lights);
+      lights.stopRoutine();
     }
 
     JsonDocument outDoc;
     outDoc["ok"] = true;
-    fillRoutinesJson(outDoc);
+    lights.routinesToJson(outDoc);
     String out;
     serializeJson(outDoc, out);
     sendJson(200, out);
@@ -283,17 +268,15 @@ void handleCommand() {
   }
 
   if (strcmp(action, "alternate") == 0) {
-    const int period = doc["period"] | static_cast<int>(alternate.periodMs());
-    const int level = doc["level"] | static_cast<int>(alternate.level());
-    if (period < 200 || period > 5000 || level < 1 || level > 100) {
+    const int period = doc["period"] | static_cast<int>(lights.alternatePeriodMs());
+    const int level = doc["level"] | static_cast<int>(lights.alternateLevel());
+    if (period < 0 || period > 5000 || level < 0 || level > 100) {
       sendJson(400, "{\"error\":\"invalid alternate settings\"}");
       return;
     }
-    alternate.setPeriodMs(static_cast<uint32_t>(period));
-    alternate.setLevel(static_cast<uint8_t>(level));
-    const bool en = doc["enabled"] | false;
-    if (en) routines.cancel();
-    alternate.setEnabled(en, lights);
+    lights.setAlternatePeriodMs(static_cast<uint32_t>(period));
+    lights.setAlternateLevel(static_cast<uint8_t>(level));
+    lights.setAlternateEnabled(doc["enabled"] | false);
     sendJson(200, "{\"ok\":true}");
     return;
   }
@@ -320,7 +303,7 @@ void handleCommand() {
     return;
   }
   if (duration == 0) {
-    const LightSettings& cfg = appSettings().get();
+    const LightSettings& cfg = lights.settings();
     const int fadeValue = doc["value"] | 0;
     duration = (fadeValue == 0) ? cfg.fadeOffMs : cfg.fadeOnMs;
   }
@@ -332,8 +315,7 @@ void handleCommand() {
     return;
   }
 
-  alternate.setEnabled(false, lights);
-  routines.cancel();
+  lights.cancelAutomationForManualControl();
 
   auto applyToZone = [&](LightZoneId id) {
     if (strcmp(action, "level") == 0) {
@@ -414,8 +396,7 @@ void setupOta() {
   ArduinoOTA.setPassword(OTA_PASSWORD);
 
   ArduinoOTA.onStart([]() {
-    routines.cancel();
-    alternate.setEnabled(false, lights);
+    lights.onFirmwareUpdateStart();
     Serial.println("OTA: inicio");
   });
   ArduinoOTA.onEnd([]() { Serial.println("\nOTA: listo"); });
@@ -434,15 +415,12 @@ void setupOta() {
 
 void setup() {
   Serial.begin(115200);
-  appSettings().begin();
-  alternate.begin();
   lights.begin();
-  schedules.begin();
 
   connectWiFi();
 
   if (WiFi.status() == WL_CONNECTED) {
-    schedules.startNtp();
+    lights.startClock();
     if (MDNS.begin(MDNS_HOSTNAME)) {
       MDNS.addService("http", "tcp", 80);
     }
@@ -457,6 +435,8 @@ void setup() {
   server.on("/api/command", HTTP_OPTIONS, handleApiOptions);
   server.on("/api/schedule", HTTP_POST, handleSchedule);
   server.on("/api/schedule", HTTP_OPTIONS, handleApiOptions);
+  server.on("/api/routines", HTTP_POST, handleRoutines);
+  server.on("/api/routines", HTTP_OPTIONS, handleApiOptions);
   server.on("/api/settings", HTTP_POST, handleSettings);
   server.on("/api/settings", HTTP_OPTIONS, handleApiOptions);
   server.on("/api/alternate", HTTP_POST, handleAlternate);
@@ -468,25 +448,15 @@ void setup() {
   server.begin();
   Serial.println("Servidor HTTP :80");
 
-  // OTA por descarga: revisa al arrancar (tras OTA_BOOT_DELAY_MS) y cada
-  // OTA_CHECK_INTERVAL_MS. Si el WiFi no está listo, espera sin bloquear.
   remoteUpdate.begin(FW_VERSION, OTA_MANIFEST_URL, OTA_CHECK_INTERVAL_MS, OTA_BOOT_DELAY_MS, OTA_RETRY_MS);
 }
 
 void loop() {
   lights.update();
-  if (alternate.isEnabled()) {
-    routines.cancel();
-  } else if (schedules.update(lights, alternate)) {
-    routines.cancel();
-  }
-  routines.update(lights);
-  alternate.update(lights);
   server.handleClient();
   ArduinoOTA.handle();
   remoteUpdate.loop();
   if (remoteUpdate.flashing()) {
-    routines.cancel();
-    if (alternate.isEnabled()) alternate.setEnabled(false, lights);
+    lights.cancelAutomationIfFlashing();
   }
 }

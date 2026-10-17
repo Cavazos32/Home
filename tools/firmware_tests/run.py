@@ -24,7 +24,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 FIRMWARE = ROOT / "HomeLights"
-SOURCES = ["LightZone.cpp", "LightController.cpp", "LightSettings.cpp", "RoutineManager.cpp"]
+SOURCES = ["LightController.cpp"]
 
 
 def find_compiler() -> list[str] | None:
@@ -60,7 +60,7 @@ def main() -> int:
         print("ERROR: no encontré ArduinoJson (define ARDUINOJSON_SRC).", file=sys.stderr)
         return 2
     if not (FIRMWARE / "config.h").exists():
-        print("ERROR: falta HomeLights/config.h (copia config.example.h).", file=sys.stderr)
+        print("ERROR: falta HomeLights/config.h (crea el archivo; ver README).", file=sys.stderr)
         return 2
 
     out_dir = Path(tempfile.mkdtemp(prefix="hl-tests-"))

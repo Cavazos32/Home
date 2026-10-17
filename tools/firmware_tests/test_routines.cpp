@@ -1,12 +1,10 @@
-// Pruebas de host para RoutineManager + LightZone (código real del firmware).
+// Pruebas de host para LightController (código real del firmware).
 // Compilar y ejecutar con: python tools/firmware_tests/run.py
 
 #include <cstdio>
 #include <functional>
 
 #include "LightController.h"
-#include "LightSettings.h"
-#include "RoutineManager.h"
 
 static uint32_t g_now = 1000;
 uint32_t millis() { return g_now; }
@@ -35,7 +33,6 @@ struct Snap {
 
 struct Fixture {
   LightController lights;
-  RoutineManager routines;
   Snap last[ZONE_COUNT];
   int commands[ZONE_COUNT] = {0, 0};
   int minTarget[ZONE_COUNT] = {101, 101};
@@ -86,7 +83,6 @@ struct Fixture {
   void tick() {
     g_now += TICK_MS;
     lights.update();
-    routines.update(lights);
     observe();
   }
 
@@ -102,9 +98,9 @@ struct Fixture {
     return pred();
   }
 
-  void start(RoutineId id) { routines.start(id, lights); observe(); }
-  void toggle(RoutineId id) { routines.toggle(id, lights); observe(); }
-  void stop() { routines.stop(lights); observe(); }
+  void start(RoutineId id) { lights.startRoutine(id); observe(); }
+  void toggle(RoutineId id) { lights.toggleRoutine(id); observe(); }
+  void stop() { lights.stopRoutine(); observe(); }
 
   void setStable(LightZoneId id, uint8_t level) {
     lights.setLightLevel(id, level);
@@ -115,8 +111,8 @@ struct Fixture {
     return !z(id).isTransitioning() && z(id).currentLevel() == level;
   }
 
-  bool state(const char* name) const { return strcmp(routines.stateName(), name) == 0; }
-  bool step(const char* name) const { return strcmp(routines.stepName(), name) == 0; }
+  bool state(const char* name) const { return strcmp(lights.routineStateName(), name) == 0; }
+  bool step(const char* name) const { return strcmp(lights.routineStepName(), name) == 0; }
 };
 
 // Avanza hasta que `next` empieza su fade y comprueba que ocurrió justo cuando
@@ -308,7 +304,7 @@ static void test_hab_toggle_after_complete() {
   f.start(ROUTINE_HABITACION);
   f.run(3000);
   CHECK(f.state("completed"));
-  CHECK(f.routines.active() == ROUTINE_HABITACION);
+  CHECK(f.lights.routineActiveId() == ROUTINE_HABITACION);
   f.toggle(ROUTINE_HABITACION);
   CHECK(f.state("idle"));
   f.run(3000);
@@ -436,7 +432,7 @@ static void test_baby_while_hab_running() {
   f.run(300);
   f.resetCounters();
   f.toggle(ROUTINE_BABY);
-  CHECK(f.routines.active() == ROUTINE_BABY);
+  CHECK(f.lights.routineActiveId() == ROUTINE_BABY);
   CHECK(f.z(ZONE_SETUP).targetLevel() == BABY_SETUP_LEVEL);
   f.run(4000);
   CHECK(f.state("completed"));
@@ -452,7 +448,7 @@ static void test_hab_while_baby_running() {
   CHECK(f.runUntil([&] { return f.z(ZONE_CUNA).isTransitioning(); }));
   f.resetCounters();
   f.toggle(ROUTINE_HABITACION);
-  CHECK(f.routines.active() == ROUTINE_HABITACION);
+  CHECK(f.lights.routineActiveId() == ROUTINE_HABITACION);
   CHECK(f.z(ZONE_CUNA).targetLevel() == GROUP_CUNA_LEVEL);
   f.run(4000);
   CHECK(f.state("completed"));
@@ -468,7 +464,7 @@ static void test_switch_from_completed_no_blackout() {
   f.run(3000);
   f.resetCounters();
   f.toggle(ROUTINE_BABY);
-  CHECK(f.routines.active() == ROUTINE_BABY);
+  CHECK(f.lights.routineActiveId() == ROUTINE_BABY);
   CHECK(f.state("running"));
   f.run(4000);
   CHECK(f.minTarget[ZONE_CUNA] > 0);
@@ -490,7 +486,7 @@ static void test_manual_command_cancels() {
   f.start(ROUTINE_HABITACION);
   f.run(300);
   // Equivale a handleCommand: cancela la rutina y aplica el comando manual.
-  f.routines.cancel();
+  f.lights.cancelRoutine();
   f.lights.fadeLight(ZONE_SETUP, 10, 500);
   f.observe();
   f.resetCounters();
@@ -505,7 +501,7 @@ static void test_cancel_after_complete_keeps_lights() {
   Fixture f;
   f.start(ROUTINE_BABY);
   f.run(3000);
-  f.routines.cancel();
+  f.lights.cancelRoutine();
   f.resetCounters();
   f.run(1000);
   CHECK(f.state("idle"));
@@ -525,10 +521,10 @@ static void test_stop_when_idle_turns_off() {
   CHECK(f.stableAt(ZONE_CUNA, 0));
 }
 
-static int countActive(const RoutineManager& r) {
+static int countActive(const LightController& lights) {
   JsonDocument doc;
-  JsonArray arr = doc.to<JsonArray>();
-  r.listJson(arr);
+  lights.routinesToJson(doc);
+  JsonArray arr = doc["routines"].as<JsonArray>();
   int n = 0;
   for (JsonObject o : arr) {
     if (o["active"].as<bool>()) ++n;
@@ -550,12 +546,12 @@ static void test_never_two_active() {
       case 2: f.start(ROUTINE_HABITACION); break;
       case 3: f.start(ROUTINE_BABY); break;
       case 4: f.stop(); break;
-      case 5: f.routines.cancel(); break;
+      case 5: f.lights.cancelRoutine(); break;
       default: break;
     }
     f.run((rnd() % 40) * TICK_MS);
-    CHECK(countActive(f.routines) <= 1);
-    CHECK(f.routines.isActive() || f.state("idle"));
+    CHECK(countActive(f.lights) <= 1);
+    CHECK(f.lights.routineActive() || f.state("idle"));
   }
 }
 
@@ -563,9 +559,7 @@ static void test_json_shapes() {
   Fixture f;
   f.start(ROUTINE_BABY);
   JsonDocument doc;
-  f.routines.summaryJson(doc["routine"].to<JsonObject>());
-  f.routines.listJson(doc["routines"].to<JsonArray>());
-  f.routines.legacyGroupJson(doc["group"].to<JsonObject>());
+  f.lights.routinesToJson(doc);
   CHECK(strcmp(doc["routine"]["active"] | "", "baby") == 0);
   CHECK(strcmp(doc["routine"]["state"] | "", "running") == 0);
   CHECK(strcmp(doc["routine"]["step"] | "", "setup") == 0);
@@ -584,20 +578,19 @@ static void test_json_shapes() {
 
   f.start(ROUTINE_HABITACION);
   JsonDocument doc2;
-  f.routines.legacyGroupJson(doc2["group"].to<JsonObject>());
+  f.lights.routinesToJson(doc2);
   CHECK(doc2["group"]["running"].as<bool>());
   CHECK(doc2["group"]["active"].as<bool>());
   CHECK(strcmp(doc2["group"]["step"] | "", "cuna") == 0);
 
-  CHECK(RoutineManager::idFromName("habitacion") == ROUTINE_HABITACION);
-  CHECK(RoutineManager::idFromName("baby") == ROUTINE_BABY);
-  CHECK(RoutineManager::idFromName("none") == ROUTINE_NONE);
-  CHECK(RoutineManager::idFromName("Baby") == ROUTINE_NONE);
-  CHECK(RoutineManager::idFromName(nullptr) == ROUTINE_NONE);
+  CHECK(f.lights.routineFromName("habitacion") == ROUTINE_HABITACION);
+  CHECK(f.lights.routineFromName("baby") == ROUTINE_BABY);
+  CHECK(f.lights.routineFromName("none") == ROUTINE_NONE);
+  CHECK(f.lights.routineFromName("Baby") == ROUTINE_NONE);
+  CHECK(f.lights.routineFromName(nullptr) == ROUTINE_NONE);
 }
 
 int main() {
-  appSettings().begin();
   struct Case { const char* name; void (*fn)(); };
   const Case cases[] = {
       {"progreso de LightZone", test_progress_basics},

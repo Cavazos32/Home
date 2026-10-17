@@ -2,8 +2,6 @@
 
 Integración con la app **Atajos** (Apple Shortcuts) y **Siri** usando la API HTTP que ya expone el ESP32 en la red Wi‑Fi local. No se añade firmware ni endpoints nuevos.
 
-**Resumen ejecutivo:** [RESUMEN.md](RESUMEN.md)
-
 ## Requisitos
 
 - iPhone/iPad en la **misma Wi‑Fi** que el ESP32.
@@ -45,11 +43,11 @@ Sustituye `BASE_URL` por tu URL (p. ej. `http://192.168.1.100`).
 
 | Atajo (nombre sugerido) | Frase Siri (ejemplo) | Peticiones (orden) |
 |-------------------------|----------------------|--------------------|
-| [Cuna](01-cuna.md) | «Cuna» o «Enciende la cuna» | 1× `on` / `cuna` |
-| [Luz nocturna](02-luz-nocturna.md) | «Luz nocturna» | 1× `off` / `setup`, luego 1× `level` / `cuna` / `20` |
-| [Setup](03-setup.md) | «Setup» o «Enciende el setup» | 1× `on` / `setup` |
-| [Apagar todo](04-apagar-todo.md) | «Apaga las luces» | 1× `off` / `both` |
-| [Encender todo](05-encender-todo.md) | «Enciende las luces» | 1× `on` / `both` |
+| Cuna | «Cuna» o «Enciende la cuna» | 1× `on` / `cuna` |
+| Luz nocturna | «Luz nocturna» | 1× `off` / `setup`, luego 1× `level` / `cuna` / `20` |
+| Setup | «Setup» o «Enciende el setup» | 1× `on` / `setup` |
+| Apagar todo | «Apaga las luces» | 1× `off` / `both` |
+| Encender todo | «Enciende las luces» | 1× `on` / `both` |
 
 Cuerpos JSON exactos:
 
@@ -82,11 +80,9 @@ Verificado en `HomeLights.ino` → `handleCommand` y `LightZone.cpp`:
    - URL: texto anterior + `/api/command` (p. ej. con acción **Combinar texto**: `[Texto]` + `/api/command`).
    - Método: **POST**.
    - Encabezados: `Content-Type` → `application/json`.
-   - Cuerpo de solicitud: **JSON** según la tabla (ver guías por atajo).
+   - Cuerpo de solicitud: **JSON** según la tabla de arriba.
 4. (Opcional) **Obtener detalles de contenido de URL** → **Código de respuesta** para comprobar 200 al depurar.
 5. **Ajustes del atajo** (icono ⚙ en la esquina): activa **Mostrar en Compartir** si quieres; para Siri, **Añadir a Siri** y graba la frase.
-
-Detalle paso a paso por escena: archivos `01-cuna.md` … `05-encender-todo.md`.
 
 ## Reservar IP (DHCP) en el router
 

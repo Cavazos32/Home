@@ -253,6 +253,58 @@
     .tile-extra { padding: 0 var(--pad) var(--pad); }
     .tile-extra[hidden] { display: none; }
     .tile-extra .field-label { margin: 0 0 0.35rem; }
+
+    .group-actions {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0 var(--pad) 1rem;
+    }
+
+    .group-actions .ghost {
+      flex: 1;
+      min-height: 44px;
+      border-radius: 14px;
+      border: 1px solid var(--card-border);
+      background: var(--card);
+      color: inherit;
+      font-weight: 600;
+    }
+
+    .group-sheet {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: var(--bg);
+      overflow-y: auto;
+      padding: 0 0 6rem;
+    }
+
+    .step-row {
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 0.75rem var(--pad);
+      margin-bottom: 0.6rem;
+      background: var(--card);
+    }
+
+    .step-row-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 650;
+    }
+
+    .step-row-actions { display: flex; gap: 0.35rem; }
+
+    .step-row-actions button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 1.1rem;
+      padding: 0.15rem 0.35rem;
+    }
     .hint { margin: 0; font-size: 0.82rem; opacity: 0.8; }
 
     input[type="range"] { display: block; width: 100%; height: 32px; margin: 0; accent-color: currentColor; }
@@ -515,24 +567,29 @@
       </article>
 
       <h2 class="section-label">Grupos</h2>
-      <article class="tile group" id="tile-habitacion">
-        <div class="tile-row">
-          <div class="tile-main" style="cursor:default">
-            <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 16l8 4 8-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
-            <span class="tile-copy"><span class="tile-name">Habitación</span><span class="tile-sub" id="habitacion-sub">Cunero 35% → Setup 100%</span></span>
-          </div>
-          <button class="switch" id="switch-habitacion" type="button" role="switch" aria-checked="false" aria-label="Grupo Habitación"></button>
-        </div>
-      </article>
-      <article class="tile group" id="tile-baby">
-        <div class="tile-row">
-          <div class="tile-main" style="cursor:default">
-            <span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M15.5 4.5a7.5 7.5 0 1 0 4 13.6A8 8 0 0 1 15.5 4.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
-            <span class="tile-copy"><span class="tile-name">Baby</span><span class="tile-sub" id="baby-sub">Setup 40% → Cunero 25%</span></span>
-          </div>
-          <button class="switch" id="switch-baby" type="button" role="switch" aria-checked="false" aria-label="Grupo Baby"></button>
-        </div>
-      </article>
+      <div id="group-list"></div>
+      <div class="group-actions">
+        <button class="ghost" type="button" id="add-group">Crear grupo</button>
+      </div>
+    </section>
+
+    <section class="group-sheet" id="group-sheet" hidden aria-labelledby="group-sheet-title">
+      <div class="panel">
+        <button class="back" type="button" id="close-group-sheet">‹ Inicio</button>
+        <h2 class="subhead" id="group-sheet-title">Grupo</h2>
+        <p class="help">Define el orden, la intensidad de cada zona y la pausa antes de cada paso (ms). El atajo HTTP usa el identificador en minúsculas.</p>
+        <label class="field-label" for="grp-label">Nombre</label>
+        <input class="field" id="grp-label" type="text" maxlength="31" required>
+        <label class="field-label" for="grp-id">Identificador (atajos / API)</label>
+        <input class="field" id="grp-id" type="text" pattern="[a-z][a-z0-9_]{0,14}" maxlength="15" required>
+        <label class="field-label" for="grp-next">Avanzar al siguiente paso (% del fade)</label>
+        <input class="field" id="grp-next" type="number" min="5" max="100" step="1" value="70">
+        <p class="field-label">Pasos</p>
+        <div id="grp-steps"></div>
+        <div class="row"><button type="button" id="grp-add-step">Agregar paso</button></div>
+        <div class="row"><button class="primary" type="button" id="save-group">Guardar grupo</button></div>
+        <div class="row"><button type="button" id="delete-group" hidden>Eliminar grupo</button></div>
+      </div>
     </section>
 
     <section class="view" id="view-routines" hidden>
@@ -611,9 +668,9 @@
           <p class="help">También puedes activarlo con el icono de la pantalla principal.</p>
           <div class="menu-row"><span>Activado</span><button class="switch" id="alt-switch" type="button" role="switch" aria-checked="false" aria-label="Modo alternado"></button></div>
           <label class="field-label" for="alt-level">Intensidad (%)</label>
-          <input class="field" id="alt-level" type="number" min="1" max="100" value="80">
+          <input class="field" id="alt-level" type="number" min="0" max="100" value="80">
           <label class="field-label" for="alt-period">Tiempo de cada turno (ms)</label>
-          <input class="field" id="alt-period" type="number" min="200" max="5000" step="100" value="700">
+          <input class="field" id="alt-period" type="number" min="0" max="5000" step="100" value="700">
           <div class="row"><button class="primary" id="save-alternate" type="button">Guardar</button></div>
         </div>
       </div>
@@ -652,17 +709,35 @@
 
 <script>
 const POLL_MS = 350;
+const PENDING_MAX_MS = 5000;
+const EXPECT_MAX_MS = 8000;
+const MAX_GROUPS = 6;
+const MAX_GROUP_STEPS = 4;
 const ZONE_LABEL = { cuna: 'Cunero', setup: 'Setup', both: 'Ambas' };
 const ACTION_LABEL = { off: 'Apagar', on: 'Encender', level: 'Poner al' };
 let schedules = [];
 let schedulesDirty = false;
 let alternateOn = false;
 let expanded = null;
-const ROUTINE_IDS = ['habitacion', 'baby'];
-const routines = {
-  habitacion: { state: 'idle', step: 'idle', steps: [{ zone: 'cuna', level: 35 }, { zone: 'setup', level: 100 }] },
-  baby: { state: 'idle', step: 'idle', steps: [{ zone: 'setup', level: 40 }, { zone: 'cuna', level: 25 }] }
+let groupOrder = ['habitacion', 'baby'];
+const groups = {
+  habitacion: {
+    label: 'Habitación',
+    state: 'idle',
+    step: 'idle',
+    nextStepAt: 0.7,
+    steps: [{ zone: 'cuna', level: 35, delayMs: 0 }, { zone: 'setup', level: 100, delayMs: 0 }]
+  },
+  baby: {
+    label: 'Baby',
+    state: 'idle',
+    step: 'idle',
+    nextStepAt: 0.7,
+    steps: [{ zone: 'setup', level: 40, delayMs: 0 }, { zone: 'cuna', level: 25, delayMs: 0 }]
+  }
 };
+let editingGroupId = null;
+let groupsQuietUntil = 0;
 let routinesSupported = true;
 // Comando de rutina sin confirmar: { id, expect: 'on' | 'off' }.
 let routinePending = null;
@@ -673,6 +748,8 @@ const phase = { cuna: 'off', setup: 'off' };
 const levelShown = { cuna: 0, setup: 0 };
 const expectLevel = { cuna: null, setup: null };
 const pending = { cuna: null, setup: null };
+const pendingSince = { cuna: 0, setup: 0 };
+const expectSince = { cuna: 0, setup: 0 };
 const dragging = new Set();
 const dirtyFields = new Set();
 const editingFields = new Set();
@@ -794,11 +871,21 @@ async function api(path, body) {
   return data;
 }
 
+function zoneIsLit(z) {
+  if (!z) return false;
+  if (z.lit != null) return !!z.lit;
+  const target = +z.targetLevel;
+  if (z.transitioning && target > 0) return true;
+  if (z.on) return true;
+  const level = z.levelFine != null ? +z.levelFine : +z.level;
+  return level > 0.5;
+}
+
 function phaseFromServer(z) {
   if (!z) return 'off';
   if (z.phase) return z.phase;
   if (z.transitioning) return (+z.targetLevel <= 0 ? 'turning_off' : 'turning_on');
-  return (z.on || +z.level > 0.5) ? 'on' : 'off';
+  return zoneIsLit(z) ? 'on' : 'off';
 }
 
 function zoneText(zone) {
@@ -830,16 +917,7 @@ function paint() {
     }
   });
 
-  ROUTINE_IDS.forEach((id) => {
-    const on = routines[id].state !== 'idle';
-    const tile = document.getElementById('tile-' + id);
-    tile.hidden = id !== 'habitacion' && !routinesSupported;
-    tile.classList.toggle('is-on', on);
-    const sw = document.getElementById('switch-' + id);
-    sw.setAttribute('aria-checked', String(on));
-    sw.disabled = !!routinePending;
-    document.getElementById(id + '-sub').textContent = routineText(id);
-  });
+  renderGroupTiles();
 
   document.getElementById('alt-toggle').setAttribute('aria-pressed', String(alternateOn));
   document.getElementById('alt-toggle').classList.toggle('is-on', alternateOn);
@@ -849,12 +927,31 @@ function paint() {
 }
 
 function acceptZone(zone, server) {
+  const now = Date.now();
+  if (pending[zone] && pendingSince[zone] && now - pendingSince[zone] > PENDING_MAX_MS) {
+    pending[zone] = null;
+  }
+  if (expectLevel[zone] != null && expectSince[zone] && now - expectSince[zone] > EXPECT_MAX_MS) {
+    expectLevel[zone] = null;
+  }
+
   const nextPhase = phaseFromServer(server);
   const serverLevel = server.levelFine != null ? +server.levelFine : +server.level;
-  if (pending[zone] === 'on' && nextPhase === 'off') return;
-  if (pending[zone] === 'off' && nextPhase !== 'off' && nextPhase !== 'turning_off') return;
+  const serverLit = zoneIsLit(server);
+
+  if (pending[zone] === 'on' && nextPhase === 'off' && now - pendingSince[zone] < PENDING_MAX_MS) return;
+  if (pending[zone] === 'off' && serverLit && nextPhase !== 'turning_off' &&
+      now - pendingSince[zone] < PENDING_MAX_MS) return;
   if (pending[zone] === 'on' && nextPhase !== 'off') pending[zone] = null;
   if (pending[zone] === 'off' && nextPhase === 'off') pending[zone] = null;
+
+  if (!pending[zone] && phase[zone] === 'off' && serverLit) {
+    phase[zone] = nextPhase === 'turning_off' ? 'turning_off' : 'on';
+    levelShown[zone] = serverLevel;
+    expectLevel[zone] = null;
+    return;
+  }
+
   phase[zone] = nextPhase;
   if (dragging.has(zone)) return;
   if (expectLevel[zone] != null) {
@@ -867,55 +964,273 @@ function acceptZone(zone, server) {
   levelShown[zone] = nextPhase === 'off' ? 0 : serverLevel;
 }
 
+function groupPlanText(g) {
+  return g.steps.map((step) => {
+    let line = ZONE_LABEL[step.zone] + ' ' + step.level + '%';
+    if (+step.delayMs > 0) line += ' (+' + step.delayMs + ' ms)';
+    return line;
+  }).join(' → ');
+}
+
 function routineText(id) {
-  const r = routines[id];
-  const plan = r.steps.map((step) => ZONE_LABEL[step.zone] + ' ' + step.level + '%');
+  const r = groups[id];
+  if (!r) return '';
+  const plan = groupPlanText(r);
   if (routinePending && routinePending.id === id) {
     return routinePending.expect === 'on' ? 'Iniciando…' : 'Apagando…';
   }
   if (r.state === 'running') {
     return ZONE_LABEL[r.step] ? 'Encendiendo ' + ZONE_LABEL[r.step] + '…' : 'En curso…';
   }
-  if (r.state === 'completed') return 'Activo · ' + plan.join(' · ');
-  return plan.join(' → ');
+  if (r.state === 'completed') return 'Activo · ' + plan.replace(/ → /g, ' · ');
+  return plan;
+}
+
+function parseGroupSteps(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .filter((step) => ZONE_LABEL[step.zone] && Number.isFinite(+step.level))
+    .slice(0, MAX_GROUP_STEPS)
+    .map((step) => ({
+      zone: step.zone,
+      level: Math.round(+step.level),
+      delayMs: Math.max(0, Math.min(600000, Math.round(+(step.delayMs || 0))))
+    }));
 }
 
 function applyRoutinesFromServer(s) {
   if (Array.isArray(s.routines)) {
     routinesSupported = true;
-    s.routines.forEach((item) => {
-      const r = routines[item.id];
-      if (!r) return;
-      r.state = item.state === 'running' || item.state === 'completed' ? item.state : 'idle';
-      r.step = r.state === 'running' ? (item.step || 'idle') : 'idle';
-      if (Array.isArray(item.steps) && item.steps.length) {
-        r.steps = item.steps
-          .filter((step) => ZONE_LABEL[step.zone] && Number.isFinite(+step.level))
-          .map((step) => ({ zone: step.zone, level: Math.round(+step.level) }));
-      }
-    });
+    if (Date.now() >= groupsQuietUntil) {
+      const order = [];
+      s.routines.forEach((item) => {
+        if (!item.id) return;
+        order.push(item.id);
+        const prev = groups[item.id] || { state: 'idle', step: 'idle' };
+        groups[item.id] = {
+          label: item.label || prev.label || item.id,
+          state: item.state === 'running' || item.state === 'completed' ? item.state : 'idle',
+          step: item.state === 'running' ? (item.step || 'idle') : 'idle',
+          nextStepAt: Number.isFinite(+item.nextStepAt) ? +item.nextStepAt : (prev.nextStepAt || 0.7),
+          steps: parseGroupSteps(item.steps).length ? parseGroupSteps(item.steps) : (prev.steps || [])
+        };
+      });
+      groupOrder = order.length ? order : groupOrder;
+    } else {
+      s.routines.forEach((item) => {
+        const r = groups[item.id];
+        if (!r) return;
+        r.state = item.state === 'running' || item.state === 'completed' ? item.state : 'idle';
+        r.step = r.state === 'running' ? (item.step || 'idle') : 'idle';
+      });
+    }
     return;
   }
-  // Firmware anterior: solo existe "group" (Habitación) y no distingue "completed".
   const g = s.group;
   if (!g) return;
   routinesSupported = false;
-  const hab = routines.habitacion;
+  const hab = groups.habitacion;
   hab.state = g.running ? 'running' : 'idle';
   hab.step = g.running ? (g.step || 'idle') : 'idle';
   if (Number.isFinite(+g.cunaLevel) && Number.isFinite(+g.setupLevel)) {
-    hab.steps = [{ zone: 'cuna', level: Math.round(+g.cunaLevel) }, { zone: 'setup', level: Math.round(+g.setupLevel) }];
+    hab.steps = [
+      { zone: 'cuna', level: Math.round(+g.cunaLevel), delayMs: 0 },
+      { zone: 'setup', level: Math.round(+g.setupLevel), delayMs: 0 }
+    ];
   }
-  routines.baby.state = 'idle';
-  routines.baby.step = 'idle';
+  groups.baby.state = 'idle';
+  groups.baby.step = 'idle';
+}
+
+function renderGroupTiles() {
+  const root = document.getElementById('group-list');
+  if (!root) return;
+  root.innerHTML = groupOrder.map((id) => {
+    const g = groups[id];
+    if (!g) return '';
+    const on = g.state !== 'idle';
+    const hidden = id !== 'habitacion' && !routinesSupported ? ' hidden' : '';
+    const label = g.label || id;
+    return '<article class="tile group' + (on ? ' is-on' : '') + '" id="tile-' + id + '"' + hidden + '>' +
+      '<div class="tile-row">' +
+      '<button class="tile-main" type="button" data-open-group="' + id + '" aria-label="Configurar ' + label + '">' +
+      '<span class="tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 16l8 4 8-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>' +
+      '<span class="tile-copy"><span class="tile-name">' + label + '</span>' +
+      '<span class="tile-sub" id="' + id + '-sub">' + routineText(id) + '</span></span></button>' +
+      '<button class="switch" id="switch-' + id + '" type="button" role="switch" aria-checked="' + on + '" aria-label="Grupo ' + label + '"' +
+      (routinePending ? ' disabled' : '') + '></button></div></article>';
+  }).join('');
+}
+
+function slugifyGroupId(text) {
+  return String(text || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 15) || 'grupo';
+}
+
+function openGroupEditor(id) {
+  editingGroupId = id;
+  const g = groups[id];
+  document.getElementById('group-sheet-title').textContent = g ? g.label : 'Grupo';
+  document.getElementById('grp-label').value = g ? g.label : '';
+  document.getElementById('grp-id').value = id;
+  document.getElementById('grp-id').readOnly = id === 'habitacion' || id === 'baby';
+  document.getElementById('grp-next').value = String(Math.round((g ? g.nextStepAt : 0.7) * 100));
+  document.getElementById('delete-group').hidden = !g || id === 'habitacion' || id === 'baby';
+  renderGroupStepEditor(g ? g.steps : [{ zone: 'cuna', level: 50, delayMs: 0 }]);
+  document.getElementById('group-sheet').hidden = false;
+}
+
+function closeGroupEditor() {
+  editingGroupId = null;
+  document.getElementById('group-sheet').hidden = true;
+}
+
+function renderGroupStepEditor(steps) {
+  const root = document.getElementById('grp-steps');
+  root.innerHTML = steps.map((step, i) => {
+    const zone = step.zone === 'setup' ? 'setup' : 'cuna';
+    return '<div class="step-row" data-step="' + i + '">' +
+      '<div class="step-row-head"><span>Paso ' + (i + 1) + '</span>' +
+      '<div class="step-row-actions">' +
+      '<button type="button" data-step-up="' + i + '" aria-label="Subir">↑</button>' +
+      '<button type="button" data-step-down="' + i + '" aria-label="Bajar">↓</button>' +
+      '<button type="button" data-step-del="' + i + '" aria-label="Quitar">×</button></div></div>' +
+      '<p class="field-label">Zona</p>' +
+      '<div class="chips" role="radiogroup">' +
+      '<button class="chip" type="button" data-step-zone="' + i + '" data-value="cuna" aria-pressed="' + (zone === 'cuna') + '">Cunero</button>' +
+      '<button class="chip" type="button" data-step-zone="' + i + '" data-value="setup" aria-pressed="' + (zone === 'setup') + '">Setup</button></div>' +
+      '<label class="field-label" for="step-level-' + i + '">Intensidad (%)</label>' +
+      '<input class="field" id="step-level-' + i + '" type="number" min="0" max="100" value="' + step.level + '">' +
+      '<label class="field-label" for="step-delay-' + i + '">Pausa antes de este paso (ms)</label>' +
+      '<input class="field" id="step-delay-' + i + '" type="number" min="0" max="600000" step="100" value="' + (step.delayMs || 0) + '">' +
+      '</div>';
+  }).join('');
+}
+
+function readGroupStepsFromEditor() {
+  const rows = document.querySelectorAll('#grp-steps .step-row');
+  const steps = [];
+  rows.forEach((row, i) => {
+    const zoneBtn = row.querySelector('.chip[aria-pressed="true"]');
+    const zone = zoneBtn && zoneBtn.dataset.value === 'setup' ? 'setup' : 'cuna';
+    const level = +document.getElementById('step-level-' + i).value;
+    const delayMs = +document.getElementById('step-delay-' + i).value;
+    steps.push({
+      zone,
+      level: Math.round(level),
+      delayMs: Math.max(0, Math.min(600000, Math.round(delayMs)))
+    });
+  });
+  return steps;
+}
+
+function groupsPayload() {
+  return groupOrder.map((id) => {
+    const g = groups[id];
+    return {
+      id,
+      label: g.label,
+      nextStepAt: g.nextStepAt,
+      steps: g.steps.map((s) => ({ zone: s.zone, level: s.level, delayMs: s.delayMs || 0 }))
+    };
+  });
+}
+
+async function saveGroupEditor() {
+  if (!editingGroupId) return;
+  const label = document.getElementById('grp-label').value.trim();
+  let id = document.getElementById('grp-id').value.trim();
+  const nextPct = +document.getElementById('grp-next').value;
+  const steps = readGroupStepsFromEditor();
+  if (!label || !id || !steps.length || steps.length > MAX_GROUP_STEPS) {
+    setStatus('Revisa nombre, identificador y pasos');
+    return;
+  }
+  if (!/^[a-z][a-z0-9_]{0,14}$/.test(id)) {
+    setStatus('Identificador inválido (minúsculas, números, _)');
+    return;
+  }
+  if (!Number.isFinite(nextPct) || nextPct < 5 || nextPct > 100) {
+    setStatus('Avance entre pasos inválido');
+    return;
+  }
+  const oldId = editingGroupId;
+  if (oldId !== id && groups[id]) {
+    setStatus('Ese identificador ya existe');
+    return;
+  }
+  if (oldId !== id) {
+    groups[id] = groups[oldId];
+    delete groups[oldId];
+    groupOrder = groupOrder.map((x) => (x === oldId ? id : x));
+  }
+  groups[id].label = label;
+  groups[id].steps = steps;
+  groups[id].nextStepAt = nextPct / 100;
+  groupsQuietUntil = Date.now() + 10000;
+  try {
+    await api('/api/routines', { routines: groupsPayload() });
+    groupsQuietUntil = Date.now() + 3000;
+    closeGroupEditor();
+    setStatus('Grupo guardado');
+    poll();
+  } catch (e) {
+    groupsQuietUntil = 0;
+    setStatus(e.message);
+  }
+}
+
+function addNewGroup() {
+  if (groupOrder.length >= MAX_GROUPS) {
+    setStatus('Máximo ' + MAX_GROUPS + ' grupos');
+    return;
+  }
+  const label = 'Grupo ' + (groupOrder.length + 1);
+  let id = slugifyGroupId(label);
+  let n = 2;
+  while (groups[id]) {
+    id = slugifyGroupId(label + ' ' + n);
+    n++;
+  }
+  groups[id] = {
+    label,
+    state: 'idle',
+    step: 'idle',
+    nextStepAt: 0.7,
+    steps: [{ zone: 'cuna', level: 50, delayMs: 0 }, { zone: 'setup', level: 50, delayMs: 0 }]
+  };
+  groupOrder.push(id);
+  openGroupEditor(id);
+}
+
+async function deleteEditingGroup() {
+  if (!editingGroupId || editingGroupId === 'habitacion' || editingGroupId === 'baby') return;
+  const id = editingGroupId;
+  delete groups[id];
+  groupOrder = groupOrder.filter((x) => x !== id);
+  groupsQuietUntil = Date.now() + 10000;
+  try {
+    await api('/api/routines', { routines: groupsPayload() });
+    closeGroupEditor();
+    setStatus('Grupo eliminado');
+    poll();
+  } catch (e) {
+    groupsQuietUntil = 0;
+    setStatus(e.message);
+  }
 }
 
 // Una acción manual (zona o modo alternado) cancela la rutina en el ESP32.
 function markRoutinesCancelled() {
   routineGen++;
-  ROUTINE_IDS.forEach((id) => {
-    routines[id].state = 'idle';
-    routines[id].step = 'idle';
+  groupOrder.forEach((id) => {
+    if (!groups[id]) return;
+    groups[id].state = 'idle';
+    groups[id].step = 'idle';
   });
 }
 
@@ -935,6 +1250,7 @@ function sendLevel(zone, value) {
 async function toggleZone(zone) {
   const turnOn = phase[zone] === 'off';
   pending[zone] = turnOn ? 'on' : 'off';
+  pendingSince[zone] = Date.now();
   phase[zone] = turnOn ? 'turning_on' : 'turning_off';
   if (!turnOn) levelShown[zone] = 0;
   markRoutinesCancelled();
@@ -952,21 +1268,21 @@ async function toggleZone(zone) {
 }
 
 async function toggleRoutine(id) {
-  if (routinePending) return;
-  const previous = JSON.parse(JSON.stringify(routines));
-  const turnOn = routines[id].state === 'idle';
+  if (routinePending || !groups[id]) return;
+  const previous = JSON.parse(JSON.stringify(groups));
+  const turnOn = groups[id].state === 'idle';
   routinePending = { id, expect: turnOn ? 'on' : 'off' };
-  ROUTINE_IDS.forEach((other) => {
-    routines[other].state = 'idle';
-    routines[other].step = 'idle';
+  groupOrder.forEach((other) => {
+    if (!groups[other]) return;
+    groups[other].state = 'idle';
+    groups[other].step = 'idle';
   });
   if (turnOn) {
-    routines[id].state = 'running';
-    routines[id].step = routines[id].steps[0].zone;
+    groups[id].state = 'running';
+    groups[id].step = groups[id].steps[0].zone;
   }
   routineGen++;
   paint();
-  // El ESP32 decide el toggle; el firmware anterior solo entiende booleanos.
   const enabled = routinesSupported ? 'toggle' : turnOn;
   try {
     const res = await api('/api/command', { action: 'group', group: id, enabled });
@@ -976,7 +1292,9 @@ async function toggleRoutine(id) {
   } catch (e) {
     routineGen++;
     routinePending = null;
-    ROUTINE_IDS.forEach((other) => Object.assign(routines[other], previous[other]));
+    groupOrder.forEach((other) => {
+      if (previous[other]) Object.assign(groups[other], previous[other]);
+    });
     setStatus(e.message);
   }
   paint();
@@ -1331,8 +1649,71 @@ document.addEventListener('visibilitychange', () => {
 });
 document.getElementById('alt-toggle').addEventListener('click', toggleAlternate);
 document.getElementById('alt-switch').addEventListener('click', toggleAlternate);
-ROUTINE_IDS.forEach((id) => {
-  document.getElementById('switch-' + id).addEventListener('click', () => toggleRoutine(id));
+document.getElementById('group-list').addEventListener('click', (event) => {
+  const openBtn = event.target.closest('[data-open-group]');
+  if (openBtn) {
+    openGroupEditor(openBtn.dataset.openGroup);
+    return;
+  }
+  const sw = event.target.closest('.switch[id^="switch-"]');
+  if (sw && sw.id.startsWith('switch-')) {
+    toggleRoutine(sw.id.slice('switch-'.length));
+  }
+});
+document.getElementById('add-group').addEventListener('click', addNewGroup);
+document.getElementById('close-group-sheet').addEventListener('click', closeGroupEditor);
+document.getElementById('save-group').addEventListener('click', saveGroupEditor);
+document.getElementById('delete-group').addEventListener('click', deleteEditingGroup);
+document.getElementById('grp-add-step').addEventListener('click', () => {
+  const steps = readGroupStepsFromEditor();
+  if (steps.length >= MAX_GROUP_STEPS) {
+    setStatus('Máximo ' + MAX_GROUP_STEPS + ' pasos');
+    return;
+  }
+  steps.push({ zone: 'setup', level: 50, delayMs: 500 });
+  renderGroupStepEditor(steps);
+});
+document.getElementById('grp-steps').addEventListener('click', (event) => {
+  const zoneBtn = event.target.closest('[data-step-zone]');
+  if (zoneBtn) {
+    const row = zoneBtn.closest('.step-row');
+    row.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
+    zoneBtn.setAttribute('aria-pressed', 'true');
+    return;
+  }
+  let steps = readGroupStepsFromEditor();
+  const up = event.target.closest('[data-step-up]');
+  const down = event.target.closest('[data-step-down]');
+  const del = event.target.closest('[data-step-del]');
+  if (up) {
+    const i = +up.dataset.stepUp;
+    if (i > 0) {
+      const t = steps[i - 1];
+      steps[i - 1] = steps[i];
+      steps[i] = t;
+      renderGroupStepEditor(steps);
+    }
+  } else if (down) {
+    const i = +down.dataset.stepDown;
+    if (i < steps.length - 1) {
+      const t = steps[i + 1];
+      steps[i + 1] = steps[i];
+      steps[i] = t;
+      renderGroupStepEditor(steps);
+    }
+  } else if (del) {
+    const i = +del.dataset.stepDel;
+    if (steps.length <= 1) return;
+    steps.splice(i, 1);
+    renderGroupStepEditor(steps);
+  }
+});
+document.getElementById('grp-label').addEventListener('input', () => {
+  const idEl = document.getElementById('grp-id');
+  if (idEl.readOnly || !editingGroupId || groups[editingGroupId]) return;
+  if (editingGroupId.startsWith('grupo')) {
+    idEl.value = slugifyGroupId(document.getElementById('grp-label').value);
+  }
 });
 document.getElementById('save-settings').addEventListener('click', saveSettings);
 document.getElementById('save-alternate').addEventListener('click', saveAlternate);
@@ -1368,6 +1749,7 @@ document.getElementById('save-link').addEventListener('click', () => {
   slider.addEventListener('input', () => {
     const value = Math.round(+slider.value);
     expectLevel[zone] = value;
+    expectSince[zone] = Date.now();
     levelShown[zone] = value;
     phase[zone] = 'on';
     markRoutinesCancelled();
@@ -1383,6 +1765,7 @@ document.getElementById('level-box').hidden = true;
 applyTheme();
 trackFieldEdits();
 renderSchedules();
+renderGroupTiles();
 paint();
 
 if (isFileMode()) {

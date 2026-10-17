@@ -3,12 +3,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
-// OTA por descarga ("pull"): el ESP32 baja un version.json por HTTPS, compara
-// la versión con FW_VERSION y, si hay una mayor, descarga el .bin, verifica
-// MD5/SHA-256 y se reinicia con el firmware nuevo.
-//
-// La revisión y la descarga corren en una tarea FreeRTOS aparte, así que
-// loop() nunca se bloquea (las luces, la web y ArduinoOTA siguen funcionando).
+// OTA por HTTPS (version.json → .bin); la descarga corre en una tarea aparte.
 class RemoteUpdate {
 public:
   void begin(const char* currentVersion, const char* manifestUrl, uint32_t intervalMs, uint32_t bootDelayMs, uint32_t retryMs);
