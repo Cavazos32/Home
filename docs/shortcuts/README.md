@@ -1,6 +1,6 @@
 # Atajos de iOS y Siri para HomeLights
 
-Integración con la app **Atajos** (Apple Shortcuts) y **Siri** usando la API HTTP que ya expone el ESP32 en la red Wi‑Fi local. No se añade firmware ni endpoints nuevos.
+Integración con la app **Atajos** (Apple Shortcuts) y **Siri** usando la API HTTP del ESP32 en la red Wi‑Fi local. El flujo recomendado es **leer estado → mostrar al usuario → ejecutar `toggle`** (el firmware invierte encendido/apagado como en el panel web).
 
 ## Requisitos
 
@@ -19,70 +19,100 @@ Sustituye `BASE_URL` en toda la documentación por la URL base **real** de tu pl
 
 > **Ejemplo de IP:** `192.168.1.100` es ficticio. Usa la IP que imprima el ESP32 o la reserva DHCP de tu router.
 
-Endpoint común a todos los atajos:
+## Flujo en Atajos (toggle + estado)
 
-```text
-POST BASE_URL/api/command
-Content-Type: application/json
+Cada atajo de control debería hacer **dos** peticiones HTTP en este orden:
+
+1. **GET** `BASE_URL/api/state` — leer cómo están las luces **antes** de actuar.
+2. **Mostrar** al usuario el estado relevante (alerta, notificación o resultado del atajo).
+3. **POST** `BASE_URL/api/command` con `Content-Type: application/json` y cuerpo `{"action":"toggle","zone":"…"}`.
+
+El ESP32 no cambia la semántica de `toggle`: si la zona está encendida (`on: true`), pasa a apagada; si está apagada, enciende con fade hacia el **Nivel on** de ajustes (`defaultOnLevel`).
+
+### Campos útiles en `GET /api/state`
+
+Fragmento típico (cada zona tiene la misma forma):
+
+```json
+{
+  "cuna": {
+    "level": 45,
+    "levelFine": 45.2,
+    "on": true,
+    "lit": true,
+    "transitioning": false,
+    "phase": "steady"
+  },
+  "setup": { "on": false, "level": 0, "...": "..." }
+}
 ```
 
-Respuesta correcta: HTTP **200** y cuerpo `{"ok":true}`.
+Para mostrar en Atajos (acción **Obtener valor del diccionario** sobre el JSON de la respuesta):
+
+| Ruta | Uso en Siri / alerta |
+|------|----------------------|
+| `cuna.on` | ¿Cuna encendida? (booleano) |
+| `cuna.levelFine` o `cuna.level` | Brillo actual (0–100) |
+| `setup.on` | ¿Setup encendido? |
+| `setup.levelFine` o `setup.level` | Brillo setup |
+
+Opcional: `clock`, `routine.active`, `alternate.enabled` si quieres avisar de rutina o modo alternado (un `toggle` manual los cancela en el firmware).
+
+Respuesta correcta del **POST** toggle: HTTP **200** y `{"ok":true}`.
 
 Errores habituales (cuerpo JSON con `"error"`):
 
 | Código | Causa típica |
 |--------|----------------|
-| 400 | JSON inválido, zona/acción desconocida, nivel fuera de 0–100 |
+| 400 | JSON inválido, zona desconocida |
 | 503 | Sin Wi‑Fi en el ESP32 (p. ej. `/api/ota/check`; no aplica a `/api/command` en uso normal) |
 
 Si la IP es incorrecta o el ESP32 está apagado, Atajos mostrará error de red (sin JSON).
 
-## Tabla resumen de peticiones
+## Atajos sugeridos (solo `toggle`)
 
 Sustituye `BASE_URL` por tu URL (p. ej. `http://192.168.1.100`).
 
-| Atajo (nombre sugerido) | Frase Siri (ejemplo) | Peticiones (orden) |
-|-------------------------|----------------------|--------------------|
-| Cuna | «Cuna» o «Enciende la cuna» | 1× `on` / `cuna` |
-| Luz nocturna | «Luz nocturna» | 1× `off` / `setup`, luego 1× `level` / `cuna` / `20` |
-| Setup | «Setup» o «Enciende el setup» | 1× `on` / `setup` |
-| Apagar todo | «Apaga las luces» | 1× `off` / `both` |
-| Encender todo | «Enciende las luces» | 1× `on` / `both` |
+| Atajo (nombre sugerido) | Frase Siri (ejemplo) | GET | POST (después de mostrar estado) |
+|-------------------------|----------------------|-----|----------------------------------|
+| Cuna | «Cuna» | `/api/state` → mostrar `cuna` | `{"action":"toggle","zone":"cuna"}` |
+| Setup | «Setup» | `/api/state` → mostrar `setup` | `{"action":"toggle","zone":"setup"}` |
+| Luces habitación | «Luces habitación» | `/api/state` → mostrar ambas zonas | `{"action":"toggle","zone":"both"}` |
+| Estado luces | «¿Cómo están las luces?» | `/api/state` → mostrar y **fin** (sin POST) | — |
 
-Cuerpos JSON exactos:
+**`zone":"both"`** con `toggle` aplica **toggle en cuna y en setup por separado** (no es un único interruptor “todo”). Si quieres control independiente, usa atajos «Cuna» y «Setup».
+
+### Grupos / rutinas (opcional)
+
+Si usas escenas **Habitación** o **Baby**, puedes mantener solo **`enabled":"toggle"`** (sin `true`/`false`):
 
 ```json
-{"action":"on","zone":"cuna"}
-{"action":"off","zone":"setup"}
-{"action":"level","zone":"cuna","value":20}
-{"action":"on","zone":"setup"}
-{"action":"off","zone":"both"}
-{"action":"on","zone":"both"}
+{"action":"group","group":"baby","enabled":"toggle"}
 ```
 
-(Luz nocturna usa la segunda y la tercera línea, en ese orden.)
+Mismo patrón: **GET** `/api/state` → revisar `routine` / `routines[]` → **POST** el JSON anterior.
 
 ## Comportamiento respecto al firmware
 
-Verificado en `HomeLights.ino` → `handleCommand` y `LightZone.cpp`:
+Verificado en `HomeLights.ino` → `handleCommand`:
 
-- **`action":"on"`** hace fade al **`defaultOnLevel`** guardado en ajustes (NVS), sin cambiar ese ajuste.
-- **`action":"level"`** fija el brillo al instante (sin fade por defecto en `setLightLevel`); **no** modifica `defaultOnLevel`.
-- **`action":"off"`** apaga con fade según `fadeOffMs`.
-- **`zone":"both"`** con `on`/`off` llama a `allLightsOn()` / `allLightsOff()`.
-- Cada comando desactiva el modo alternado (`alternate.setEnabled(false, …)`); horarios, OTA y el panel web siguen igual.
+- **`action":"toggle"`** invierte cada zona (`toggleLight`: apaga si hay luz o fade hacia encendido; si no, `on` con fade al nivel por defecto). Con **`both`**, aplica eso en cuna y setup por separado.
+- Tras el toggle, **`on`** en el siguiente `GET /api/state` refleja el nuevo estado (puede haber fade: `transitioning: true` unos instantes).
+- Cada comando desactiva el modo alternado y cancela la rutina activa, igual que un toque manual en el panel.
 
-## Configuración rápida en iPhone
+Las acciones **`on`** y **`off`** siguen existiendo en la API para el panel web y otras integraciones; **estos atajos no las usan**.
 
-1. Abre **Atajos** → **+** → nombre (p. ej. «Cuna»).
-2. Añade **Texto** con tu URL base (ejemplo: `http://192.168.1.100`) — opcional pero recomendable para cambiar la IP en un solo sitio.
-3. Añade **Obtener contenido de URL**:
-   - URL: texto anterior + `/api/command` (p. ej. con acción **Combinar texto**: `[Texto]` + `/api/command`).
-   - Método: **POST**.
-   - Encabezados: `Content-Type` → `application/json`.
-   - Cuerpo de solicitud: **JSON** según la tabla de arriba.
-4. (Opcional) **Obtener detalles de contenido de URL** → **Código de respuesta** para comprobar 200 al depurar.
-5. **Ajustes del atajo** (icono ⚙ en la esquina): activa **Mostrar en Compartir** si quieres; para Siri, **Añadir a Siri** y graba la frase.
+## Configuración paso a paso en iPhone
+
+1. Atajos → **+** → nombre (p. ej. «Cuna»).
+2. Acción **Texto** con tu URL base (ej. `http://192.168.1.100`).
+3. **Obtener contenido de URL** — URL: `[Texto]` + `/api/state`, método **GET**.
+4. **Obtener valor del diccionario** — clave `cuna`, subclave `on` / `levelFine` (repite o formatea texto para **Mostrar alerta** / **Mostrar notificación**).
+5. Segunda **Obtener contenido de URL** — URL: `[Texto]` + `/api/command`, método **POST**, encabezado `Content-Type` → `application/json`, cuerpo JSON del toggle.
+6. (Opcional) **Obtener detalles de contenido de URL** → **Código de respuesta** = 200 en el POST.
+7. **Ajustes del atajo** → **Añadir a Siri**.
+
+Duplica el atajo para Setup cambiando zona y textos del paso 4.
 
 ## Reservar IP (DHCP) en el router
 
@@ -98,18 +128,15 @@ Alternativa: usar `http://habitacion.local` si mDNS funciona bien en tu red iOS 
 
 ## Siri
 
-- En cada atajo: **Ajustes del atajo** → **Añadir a Siri** → elige una frase corta y distinta por escena.
-- Evita frases ambiguas entre atajos («luces» vs «luz nocturna»).
+- En cada atajo: **Ajustes del atajo** → **Añadir a Siri** → frase corta y distinta por escena.
+- El atajo **Estado luces** encaja bien con preguntas («¿Cómo están las luces?») sin cambiar nada.
 - Siri ejecuta el atajo en el iPhone; el teléfono debe estar en la **misma LAN**.
 
 ## Compartir con otro iPhone (p. ej. pareja)
 
-1. En tu iPhone: abre el atajo → **Compartir** (icono compartir) → **AirDrop** al otro dispositivo, o **Copiar enlace** si Atajos ofrece enlace iCloud (solo válido si iCloud sincroniza Atajos en tu cuenta).
-2. En el otro iPhone: acepta el atajo; **edita** la acción Texto/URL y confirma que `BASE_URL` es correcta (misma red de casa).
-3. Repite para los cinco atajos o duplica una plantilla ya configurada.
-4. El segundo usuario debe añadir **su** frase de Siri en **Añadir a Siri** (no se copia la voz de Siri entre usuarios).
-
-No incluimos enlaces iCloud de importación generados aquí: no se han validado en dispositivos reales.
+1. En tu iPhone: abre el atajo → **Compartir** → **AirDrop** al otro dispositivo, o enlace iCloud si sincronizas Atajos.
+2. En el otro iPhone: acepta el atajo; **edita** la acción Texto/URL y confirma `BASE_URL`.
+3. El segundo usuario debe añadir **su** frase de Siri en **Añadir a Siri**.
 
 ## Seguridad
 
@@ -117,10 +144,6 @@ No incluimos enlaces iCloud de importación generados aquí: no se han validado 
 - Usa estos atajos **solo en Wi‑Fi doméstica de confianza**.
 - **No** hagas port forwarding del puerto 80 del ESP32 a Internet.
 - **No** pongas contraseñas Wi‑Fi ni `OTA_PASSWORD` en los atajos.
-
-## Importación automática de atajos
-
-Apple permite compartir atajos como archivos `.shortcut` o enlaces iCloud creados manualmente desde la app. Este repositorio **no** incluye binarios importables: la configuración manual con **Obtener contenido de URL** es la vía soportada y reproducible.
 
 ## Pruebas automatizadas (formato de peticiones)
 
@@ -136,21 +159,20 @@ Opcional, contra un ESP32 en la red:
 HOMELIGHTS_BASE_URL=http://192.168.x.x python3 tools/test_shortcut_requests.py --live
 ```
 
-(`--live` solo comprueba conectividad y que `POST /api/command` devuelve 200; **no** sustituye prueba física de luces ni Siri.)
+`--live` comprueba **GET /api/state** (estructura de zonas) y que un **POST toggle** devuelve 200 (**cambia el estado** de la zona indicada; por defecto `cuna`).
 
 ## Limitaciones conocidas
 
 - Sin acceso remoto fuera de la LAN.
-- Si el atajo **Luz nocturna** falla tras apagar setup pero antes de nivel cuna, la cuna queda como estaba; si falla después de encender cuna al 20 %, el setup ya estaría apagado (orden documentado: apagar setup **primero**).
-- Durante fades largos, el estado intermedio puede no ser instantáneo.
+- Durante fades, `on` y `level` pueden no coincidir con lo que ves aún en la habitación; puedes mostrar `transitioning` o esperar un segundo y volver a leer estado.
 - mDNS puede fallar en algunas redes; preferir IP reservada.
+- Escenas con brillo fijo (p. ej. «luz nocturna al 20 %») requieren `level` u otra acción; con **solo toggle** no se modelan en un único POST.
 
-## Referencia API
+## Referencia API (Atajos)
 
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/api/state` | Estado completo (zonas, ajustes, horarios) |
-| POST | `/api/command` | Control de luces (usado por atajos) |
-| POST | `/api/settings` | Cambia ajustes persistentes (no usado por estos atajos) |
+| Método | Ruta | Uso en Atajos |
+|--------|------|----------------|
+| GET | `/api/state` | Leer estado antes de mostrar / decidir |
+| POST | `/api/command` | `{"action":"toggle","zone":"cuna"\|"setup"\|"both"}` |
 
-Acciones en `/api/command`: `on`, `off`, `level`, `fade`, `toggle`, `alternate`. Zonas: `cuna`, `setup`, `both`.
+Otras acciones en `/api/command` (`on`, `off`, `level`, `fade`, `group`, …) y rutas (`/api/settings`, horarios, OTA) están pensadas para el panel web o automatización avanzada, no para los atajos mínimos de Siri descritos aquí.

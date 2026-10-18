@@ -121,7 +121,7 @@ Guía completa, tabla de peticiones, reserva DHCP, seguridad y configuración pa
 
 **[docs/shortcuts/README.md](docs/shortcuts/README.md)**
 
-Validar formatos JSON de los cinco atajos:
+Validar formatos JSON de los atajos (toggle + contrato de estado):
 
 ```bash
 python3 tools/test_shortcut_requests.py
