@@ -105,6 +105,13 @@ def validate_state_payload(data: Any) -> list[str]:
             errors.append(f"state: falta zona {zone!r}")
         else:
             errors.extend(validate_zone_state(data[zone], zone))
+
+    # Estados directos para rutinas; Atajos puede leer baby sin recorrer routines[].
+    for routine_id in ("habitacion", "baby"):
+        if routine_id not in data:
+            errors.append(f"state: falta estado directo de rutina {routine_id!r}")
+        elif not isinstance(data[routine_id], bool):
+            errors.append(f"state.{routine_id} debe ser bool")
     return errors
 
 
@@ -164,6 +171,13 @@ def validate_all() -> int:
             "transitioning": False,
             "phase": "steady",
         },
+        "habitacion": False,
+        "baby": True,
+        "routine": {"active": "baby", "state": "running", "step": "cuna"},
+        "routines": [
+            {"id": "habitacion", "active": False},
+            {"id": "baby", "active": True},
+        ],
     }
     state_errs = validate_state_payload(sample)
     if state_errs:
