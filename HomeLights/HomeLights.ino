@@ -70,6 +70,13 @@ void handleState() {
 
   lights.routinesToJson(doc, false);
 
+  // Estado directo por ID de rutina para Atajos (booleanos, sin recorrer arrays).
+  // Se conserva "routines" por compatibilidad con la interfaz y clientes existentes.
+  for (JsonObject routine : doc["routines"].as<JsonArray>()) {
+    const char* id = routine["id"] | "";
+    if (id[0] != '\0') doc[id] = routine["active"] | false;
+  }
+
   lights.alternateToJson(doc["alternate"].to<JsonObject>());
 
   lights.schedulesToJson(doc["schedules"].to<JsonArray>());
