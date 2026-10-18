@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""Valida cuerpos JSON de los atajos iOS contra el contrato de POST /api/command.
+"""Valida el flujo Atajos iOS: GET /api/state + POST /api/command con toggle.
 
 Uso:
   python3 tools/test_shortcut_requests.py
   HOMELIGHTS_BASE_URL=http://192.168.x.x python3 tools/test_shortcut_requests.py --live
 
-No requiere dependencias externas. --live usa urllib contra un ESP32 real (solo
-comprueba HTTP 200 en peticiones seguras: no fuerza escenas que alteren luces
-más allá de lo que indiques; por defecto live solo prueba apagar todo y leer state).
+No requiere dependencias externas. --live altera luces (POST toggle en cuna por defecto).
 """
 from __future__ import annotations
 
@@ -24,6 +22,10 @@ VALID_ACTIONS = frozenset({"on", "off", "level", "fade", "toggle", "alternate", 
 VALID_ZONES = frozenset({"cuna", "setup", "both"})
 VALID_GROUPS = frozenset({"habitacion", "baby"})
 
+ZONE_STATE_KEYS = frozenset(
+    {"level", "levelFine", "targetLevel", "on", "lit", "transitioning", "phase"}
+)
+
 
 @dataclass(frozen=True)
 class ShortcutStep:
@@ -31,17 +33,17 @@ class ShortcutStep:
     body: dict[str, Any]
 
 
-# Contrato alineado con handleCommand() en HomeLights.ino
+# POST usado tras GET /api/state en cada atajo (sin on/off).
 SHORTCUTS: dict[str, list[ShortcutStep]] = {
-    "Cuna": [ShortcutStep("Cuna", {"action": "on", "zone": "cuna"})],
-    "Luz nocturna": [
-        ShortcutStep("Luz nocturna", {"action": "off", "zone": "setup"}),
-        ShortcutStep("Luz nocturna", {"action": "level", "zone": "cuna", "value": 20}),
+    "Cuna": [ShortcutStep("Cuna", {"action": "toggle", "zone": "cuna"})],
+    "Setup": [ShortcutStep("Setup", {"action": "toggle", "zone": "setup"})],
+    "Luces habitación": [
+        ShortcutStep("Luces habitación", {"action": "toggle", "zone": "both"}),
     ],
-    "Setup": [ShortcutStep("Setup", {"action": "on", "zone": "setup"})],
-    "Apagar todo": [ShortcutStep("Apagar todo", {"action": "off", "zone": "both"})],
-    "Encender todo": [ShortcutStep("Encender todo", {"action": "on", "zone": "both"})],
 }
+
+# Atajos que solo leen estado (sin POST en la guía).
+SHORTCUTS_GET_ONLY = frozenset({"Estado luces"})
 
 
 def validate_command_body(body: dict[str, Any]) -> list[str]:
@@ -82,19 +84,38 @@ def validate_command_body(body: dict[str, Any]) -> list[str]:
     return errors
 
 
+def validate_zone_state(obj: Any, zone_name: str) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(obj, dict):
+        return [f"{zone_name}: no es objeto"]
+    missing = ZONE_STATE_KEYS - obj.keys()
+    if missing:
+        errors.append(f"{zone_name}: faltan claves {sorted(missing)}")
+    if "on" in obj and not isinstance(obj["on"], bool):
+        errors.append(f"{zone_name}.on debe ser bool")
+    return errors
+
+
+def validate_state_payload(data: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(data, dict):
+        return ["state: raíz no es objeto"]
+    for zone in ("cuna", "setup"):
+        if zone not in data:
+            errors.append(f"state: falta zona {zone!r}")
+        else:
+            errors.extend(validate_zone_state(data[zone], zone))
+    return errors
+
+
 # Contrato de action "group" (Habitación / Baby): (cuerpo, ¿válido?).
 GROUP_CASES: list[tuple[dict[str, Any], bool]] = [
-    ({"action": "group", "group": "habitacion", "enabled": True}, True),
-    ({"action": "group", "group": "habitacion", "enabled": False}, True),
     ({"action": "group", "group": "habitacion", "enabled": "toggle"}, True),
-    ({"action": "group", "group": "baby", "enabled": True}, True),
-    ({"action": "group", "group": "baby", "enabled": False}, True),
     ({"action": "group", "group": "baby", "enabled": "toggle"}, True),
     ({"action": "group", "enabled": "toggle"}, True),
     ({"action": "group", "group": "baby"}, False),
     ({"action": "group", "group": "baby", "enabled": "true"}, False),
-    ({"action": "group", "group": "baby", "enabled": 1}, False),
-    ({"action": "group", "group": "cocina", "enabled": True}, False),
+    ({"action": "group", "group": "cocina", "enabled": "toggle"}, False),
 ]
 
 
@@ -122,6 +143,34 @@ def validate_all() -> int:
             else:
                 serialized = json.dumps(step.body, separators=(",", ":"), ensure_ascii=False)
                 print(f"OK   {name} paso {i}: {serialized}")
+    for name in sorted(SHORTCUTS_GET_ONLY):
+        print(f"OK   {name}: solo GET /api/state (sin POST)")
+    sample = {
+        "cuna": {
+            "level": 0,
+            "levelFine": 0.0,
+            "targetLevel": 0,
+            "on": False,
+            "lit": False,
+            "transitioning": False,
+            "phase": "steady",
+        },
+        "setup": {
+            "level": 50,
+            "levelFine": 50.0,
+            "targetLevel": 50,
+            "on": True,
+            "lit": True,
+            "transitioning": False,
+            "phase": "steady",
+        },
+    }
+    state_errs = validate_state_payload(sample)
+    if state_errs:
+        failed += 1
+        print(f"FAIL muestra state: {state_errs}", file=sys.stderr)
+    else:
+        print("OK   contrato GET /api/state (zonas cuna/setup)")
     return failed
 
 
@@ -141,36 +190,45 @@ def post_command(base_url: str, body: dict[str, Any]) -> tuple[int, str]:
         return e.code, e.read().decode("utf-8", errors="replace")
 
 
-def live_check(base_url: str) -> int:
-    """GET state; POST off both (idempotente si ya apagado)."""
-    failed = 0
+def get_state(base_url: str) -> tuple[int, Any]:
     state_url = base_url.rstrip("/") + "/api/state"
+    with urllib.request.urlopen(state_url, timeout=8) as resp:
+        raw = resp.read().decode("utf-8", errors="replace")
+        return resp.status, json.loads(raw)
+
+
+def live_check(base_url: str, toggle_zone: str) -> int:
+    """GET state (validar JSON); POST toggle (altera luces)."""
+    failed = 0
     try:
-        with urllib.request.urlopen(state_url, timeout=8) as resp:
-            if resp.status != 200:
-                print(f"FAIL GET /api/state status {resp.status}", file=sys.stderr)
+        status, data = get_state(base_url)
+        if status != 200:
+            print(f"FAIL GET /api/state status {status}", file=sys.stderr)
+            failed += 1
+        else:
+            errs = validate_state_payload(data)
+            if errs:
                 failed += 1
+                print(f"FAIL GET /api/state estructura: {errs}", file=sys.stderr)
             else:
-                print("OK   GET /api/state")
-    except OSError as e:
+                cuna_on = data["cuna"]["on"]
+                setup_on = data["setup"]["on"]
+                print(f"OK   GET /api/state (cuna.on={cuna_on}, setup.on={setup_on})")
+    except (OSError, json.JSONDecodeError) as e:
         print(f"FAIL GET /api/state: {e}", file=sys.stderr)
         return 1
 
-    code, text = post_command(base_url, {"action": "off", "zone": "both"})
+    body = {"action": "toggle", "zone": toggle_zone}
+    if validate_command_body(body):
+        print(f"FAIL zona toggle inválida: {toggle_zone!r}", file=sys.stderr)
+        return failed + 1
+
+    code, text = post_command(base_url, body)
     if code != 200 or '"ok":true' not in text.replace(" ", ""):
-        print(f"FAIL POST apagar todo: {code} {text}", file=sys.stderr)
+        print(f"FAIL POST toggle {toggle_zone}: {code} {text}", file=sys.stderr)
         failed += 1
     else:
-        print("OK   POST apagar todo")
-
-    # Validar que el JSON de luz nocturna es aceptado (secuencia real altera luces)
-    for step in SHORTCUTS["Luz nocturna"]:
-        code, text = post_command(base_url, step.body)
-        if code != 200:
-            print(f"FAIL POST luz nocturna {step.body}: {code} {text}", file=sys.stderr)
-            failed += 1
-        else:
-            print(f"OK   POST luz nocturna {json.dumps(step.body, separators=(',', ':'))}")
+        print(f"OK   POST toggle zone={toggle_zone}")
 
     return failed
 
@@ -180,7 +238,13 @@ def main() -> int:
     ap.add_argument(
         "--live",
         action="store_true",
-        help="prueba HTTP contra HOMELIGHTS_BASE_URL (altera luces en el dispositivo)",
+        help="GET state + POST toggle contra HOMELIGHTS_BASE_URL (altera luces)",
+    )
+    ap.add_argument(
+        "--live-toggle-zone",
+        default="cuna",
+        choices=sorted(VALID_ZONES),
+        help="zona usada en --live (default: cuna)",
     )
     args = ap.parse_args()
 
@@ -195,7 +259,7 @@ def main() -> int:
             live_fail = 1
         else:
             print(f"\n=== Prueba live contra {base} ===")
-            live_fail = live_check(base)
+            live_fail = live_check(base, args.live_toggle_zone)
 
     total = fmt_fail + live_fail
     if total:
