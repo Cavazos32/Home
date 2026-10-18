@@ -58,6 +58,22 @@ Para mostrar en Atajos (acción **Obtener valor del diccionario** sobre el JSON 
 
 Opcional: `clock`, `routine.active`, `alternate.enabled` si quieres avisar de rutina o modo alternado (un `toggle` manual los cancela en el firmware).
 
+### Estado directo de rutinas
+
+`GET /api/state` también expone una clave booleana por cada rutina configurada, usando su `id` como nombre de clave. No necesitas recorrer `routines[]` en Atajos:
+
+```json
+{
+  "baby": true,
+  "habitacion": false
+}
+```
+
+- `baby: true`: Baby es la rutina activa.
+- `baby: false`: Baby no es la rutina activa (puede estar activa otra rutina, o ninguna).
+
+Se mantiene `routines[]`, `routine` y `group` como antes, para no romper el panel web ni clientes existentes.
+
 Respuesta correcta del **POST** toggle: HTTP **200** y `{"ok":true}`.
 
 Errores habituales (cuerpo JSON con `"error"`):
@@ -90,7 +106,7 @@ Si usas escenas **Habitación** o **Baby**, puedes mantener solo **`enabled":"to
 {"action":"group","group":"baby","enabled":"toggle"}
 ```
 
-Mismo patrón: **GET** `/api/state` → revisar `routine` / `routines[]` → **POST** el JSON anterior.
+Mismo patrón: **GET** `/api/state` → leer directamente `baby` o `habitacion` (booleanos) → mostrar la acción prevista → **POST** el JSON anterior. Las claves directas reflejan qué rutina está activa en el controlador; se conserva `routine` / `routines[]` para compatibilidad.
 
 ## Comportamiento respecto al firmware
 
